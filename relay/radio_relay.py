@@ -183,6 +183,7 @@ class Relay:
         self.errors = {}            # key -> (time, message)
         self.pool = ThreadPoolExecutor(max_workers=cfg.workers)
         self.lookups = threading.BoundedSemaphore(cfg.max_lookups)
+        self.scanned = threading.Event()     # the first library scan has finished
         self._dirty = False
 
     # ---------------------------------------------------------------- meta
@@ -584,6 +585,7 @@ class Relay:
                 except OSError:
                     pass
         self.save_meta()
+        self.scanned.set()
 
     def library(self):
         with self.lock:

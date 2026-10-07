@@ -79,6 +79,7 @@ G.MATERIAL_TRIANGLES, G.RT_SIZE_LITERAL, G.MATERIAL_RT_DEPTH_NONE, G.IMAGE_FORMA
 G.TEXT_ALIGN_CENTER, G.TEXT_ALIGN_LEFT = 1, 0
 G.GMOD_CHANNEL_PLAYING, G.GMOD_CHANNEL_PAUSED, G.GMOD_CHANNEL_STOPPED = 1, 2, 0
 G.MASK_SOLID_BRUSHONLY = 1
+G.KEY_ESCAPE = 70
 local cv = {}
 G.CreateClientConVar = function(name, def)
     if cv[name] == nil then cv[name] = def end
@@ -107,6 +108,8 @@ local function panel(class)
     return setmetatable(p, { __index = function(_, k)
         -- like a real panel: a field nobody set (self.quiet, self.lastSend) is nil
         if type(k) == "string" and k:sub(1, 1):match("%l") then return nil end
+        if k == "IsValid" then return function(self) return not rawget(self, "_removed") end end
+        if k == "Remove" then return function(self) rawset(self, "_removed", true) end end
         if type(k) == "string" and k:sub(1, 3) == "Set" then
             return function(self, v) rawset(self, "_" .. k:sub(4), v) end
         elseif type(k) == "string" and k:sub(1, 3) == "Get" and k ~= "GetSelected" and k ~= "GetValue" then
@@ -516,6 +519,23 @@ test("a guest's own song shows Skip (they may skip what they added)", function()
     M.Open("r1", false, false, true)
     M.Refresh()
     eq(M.bSkip:GetText(), "Skip")
+end)
+
+test("Esc closes the radio menu first; the next Esc opens the game menu", function()
+    local M = BRadio.Menu
+    M.Open("r1", true, true, true)
+    truthy(IsValid(M.frame), "menu open")
+    eq(W:run("OnPauseMenuShow"), false, "first Esc: the game menu is held back")
+    truthy(not IsValid(M.frame), "and the radio menu closed")
+    eq(W:run("OnPauseMenuShow"), nil, "second Esc: the game menu opens as usual")
+    -- fallback: a client where the game menu opened anyway
+    M.Open("r1", true, true, true)
+    local hidden = false
+    G.input = { IsKeyDown = function(k) return k == KEY_ESCAPE end }
+    G.gui = { IsGameUIVisible = function() return true end, HideGameUI = function() hidden = true end }
+    W:run("Think")
+    truthy(hidden and not IsValid(M.frame), "game menu hidden, radio menu closed")
+    G.input, G.gui = nil, nil
 end)
 
 io.write(string.format("\n%d passed, %d failed\n", pass, fail))

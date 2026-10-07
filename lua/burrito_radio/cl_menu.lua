@@ -515,6 +515,26 @@ hook.Add("BRadioNotice", "bradio_menu", function(msg)
     if IsValid(Menu.frame) and IsValid(Menu.status) then Menu.status:SetText(msg) end
 end)
 
+-- Esc closes the radio's menu, not the game: the first Esc leaves the radio, the next
+-- one opens the game menu as usual. OnPauseMenuShow returning false cancels the
+-- pause menu; the Think fallback covers a client where it opened anyway.
+hook.Add("OnPauseMenuShow", "bradio_menu", function()
+    if IsValid(Menu.frame) then
+        Menu.frame:Remove()
+        Menu.escapedAt = RealTime()
+        return false
+    end
+end)
+
+hook.Add("Think", "bradio_menu_esc", function()
+    if not IsValid(Menu.frame) then return end
+    if input and input.IsKeyDown and input.IsKeyDown(KEY_ESCAPE) and gui and gui.IsGameUIVisible and gui.IsGameUIVisible() then
+        gui.HideGameUI()
+        Menu.frame:Remove()
+        Menu.escapedAt = RealTime()
+    end
+end)
+
 -- close the menu when you walk away
 hook.Add("Think", "bradio_menu", function()
     if not IsValid(Menu.frame) then return end

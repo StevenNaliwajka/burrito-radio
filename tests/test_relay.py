@@ -86,6 +86,7 @@ class RelayTest(unittest.TestCase):
         })
         self.httpd, self.relay = rr.serve(rr.Config())
         self.base = "http://127.0.0.1:%d/radio" % self.httpd.server_address[1]
+        self.assertTrue(self.relay.scanned.wait(10), "the startup library scan finished")
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
     def tearDown(self):

@@ -157,3 +157,4 @@ move     | Shift+E carries your radio; plain E opens the menu                | t
 move     | the menu's Pick up carries it                                     | test_radio.lua  | the menu's Pick up carries it too
 move     | pinned: admins/bradio_owners carry it; it stays where put down    | test_radio.lua  | a pinned radio: admins and bradio_owners carry it
 move     | only admins physgun/tool pinned radios; physgun drops save the spot | test_radio.lua | pinned radios: only admins physgun
+menu     | Esc closes the radio menu first, not the game menu                | test_client.lua | Esc closes the radio menu first
