@@ -5,6 +5,20 @@
 local D = "burrito_radio/"
 for _, f in ipairs({ "sh_radio", "sh_model", "sv_relay", "sv_radio", "sv_persist" }) do include(D .. f .. ".lua") end
 
+-- the entity (Use = menu / Shift+E carry, physics): re-registered, so radios already
+-- in the world pick up the new code too
+do
+    local base = "addons/burrito_radio/lua/entities/burrito_radio/"
+    local inc, cs = include, AddCSLuaFile
+    ENT = { Folder = "entities/burrito_radio", ClassName = "burrito_radio" }
+    include = function(f) RunString(file.Read(base .. f, "GAME") or "", "entities/burrito_radio/" .. f) end
+    AddCSLuaFile = function() end
+    include("init.lua")
+    include, AddCSLuaFile = inc, cs
+    scripted_ents.Register(ENT, "burrito_radio")
+    ENT = nil
+end
+
 util.AddNetworkString("bradio_hot")
 -- the client side: one receiver (sent with SendLua, <255 bytes) that runs each file;
 -- before cl_audio it stops the old channels so nothing plays twice
