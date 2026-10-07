@@ -496,7 +496,18 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def control_ok(self):
-        if self.client_address[0] in ("127.0.0.1", "::1") and not self.headers.get("X-Forwarded-For"):
+        """Same host (and not proxied), or the shared key.
+
+        Same host is loopback OR the peer having this socket's own address: srcds
+        binds its outgoing sockets to its -ip, so the game server's request to
+        127.0.0.1 arrives from the box's LAN address (10.9.1.13), not 127.0.0.1."""
+        peer = self.client_address[0]
+        try:
+            mine = self.connection.getsockname()[0]
+        except OSError:
+            mine = None
+        local = peer in ("127.0.0.1", "::1") or peer == mine
+        if local and not self.headers.get("X-Forwarded-For"):
             return True
         key = self.relay.cfg.key
         return bool(key) and self.headers.get("X-Radio-Key", "") == key

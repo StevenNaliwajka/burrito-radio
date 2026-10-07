@@ -144,6 +144,33 @@ class RelayTest(unittest.TestCase):
         ok = dict(fwd, **{"X-Radio-Key": "sekrit"})
         self.assertEqual(self.get("/library", ok)[0], 200)
 
+    def test_same_host_on_its_lan_address_is_local(self):
+        # srcds binds outgoing sockets to its -ip: the game server's request to the relay
+        # on 127.0.0.1 can arrive from the box's own LAN address. Peer == our socket's
+        # address means same host; anything else still needs the key.
+        import socket
+        ip = None
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("10.255.255.255", 1))
+            ip = s.getsockname()[0]
+            s.close()
+        except OSError:
+            pass
+        if not ip or ip.startswith("127."):
+            self.skipTest("no LAN address")
+        port = self.httpd.server_address[1]
+        self.httpd.server_close()
+        self.httpd.shutdown()
+        os.environ["RADIO_LISTEN"] = "0.0.0.0:%d" % port
+        self.httpd, _ = rr.serve(rr.Config())
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        c = socket.create_connection((ip, port), source_address=(ip, 0))
+        c.sendall(b"GET /radio/library HTTP/1.0\r\nHost: x\r\n\r\n")
+        reply = c.recv(200).decode()
+        c.close()
+        self.assertIn(" 200 ", reply.splitlines()[0])
+
     def test_bad_keys_and_paths(self):
         self.assertEqual(self.get("/a/../../etc/passwd.mp3")[0], 404)
         self.assertEqual(self.json("/fetch?key=nope")[0], 400)
