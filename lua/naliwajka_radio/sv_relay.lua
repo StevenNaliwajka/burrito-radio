@@ -24,6 +24,14 @@ local cvPublic = CreateConVar("nradio_public_url", "https://www.naliwajka.com/ra
 local cvKey = CreateConVar("nradio_relay_key", "", bit.bor(FCVAR_ARCHIVE, FCVAR_PROTECTED, FCVAR_DONTRECORD),
     "Radio: the relay's RADIO_KEY (only when it is on another box)")
 
+-- Per-box settings (the relay's address and key on a server that is not the relay's
+-- own box) go in garrysmod/cfg/naliwajka_radio.cfg, run once the convars exist. It
+-- keeps the key out of server.cfg (often managed by something else) and off the
+-- command line, where `ps` would show it.
+if file.Exists and file.Exists("cfg/naliwajka_radio.cfg", "GAME") then
+    game.ConsoleCommand("exec naliwajka_radio.cfg\n")
+end
+
 R.Problem = nil   -- the last connection failure, shown to admins in the menu
 
 function R.PublicURL() return (cvPublic:GetString():gsub("/+$", "")) end

@@ -63,6 +63,12 @@ Pinned radios and their queues: `data/naliwajka_radio/maps/<map>.json`.
 | `nradio_max_per_player` | `1` | radios one player may have out |
 | `nradio_vote_ratio` | `0.5` | share of listeners needed to vote-skip |
 
+On a game server that is NOT the relay's box (the BMX test server), put the settings in
+`garrysmod/cfg/naliwajka_radio.cfg`; the addon runs it at load:
+
+    nradio_relay_url "http://10.9.1.13:8090/radio"
+    nradio_relay_key "<RADIO_KEY from /etc/naliwajka-radio/relay.env on 10.9.1.13>"
+
 Admin console: `nradio_status`, `nradio_place [0]`, `nradio_play "<link or words>" [stationId]`.
 "Admin" is the CAMI privilege `nradio_admin` (ULX: admin and up), else `IsAdmin()`.
 
