@@ -330,8 +330,15 @@ function M.new()
             return true
         end
         if path == "/resolve" then
+            local vid = (q.q or ""):match("^https://www%.youtube%.com/watch%?v=([%w_-]+)$")
+            if vid and R.forget and R.forget["yt-" .. vid] then
+                R.forget["yt-" .. vid] = nil
+                R.resolve[q.q] = { title = "again", tracks = { { key = "yt-" .. vid, title = "again", duration = 200 } } }
+            end
             local r = R.resolve[q.q]
             if r then code, body = 200, r else code, body = 400, { error = "could not read that video" } end
+        elseif path == "/fetch" and R.forget and R.forget[q.key] then
+            code, body = 400, { error = "unknown track: resolve it first" }
         elseif path == "/fetch" then
             local seqs = R.fetch[q.key] or { { state = "ready", duration = 200 } }
             local i = math.min(#seqs, (R.fetchCalls or {})[q.key] or 1)

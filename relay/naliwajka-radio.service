@@ -12,12 +12,39 @@ Environment=HOME=/var/lib/naliwajka-radio
 ExecStart=/usr/bin/python3 /opt/naliwajka-radio/radio_relay.py
 Restart=always
 RestartSec=3
-# yt-dlp and ffmpeg are the risky bit: keep them in a box
+# yt-dlp and ffmpeg handle files from the internet: they run in a box. Writable:
+# its own data folder only. No devices, no kernel knobs, no new privileges, no
+# capabilities, nothing but IP sockets. The network allowlist (which internal
+# addresses it may talk to at all) is the drop-in setup.sh writes:
+# naliwajka-radio.service.d/network.conf
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
+PrivateDevices=true
 ReadWritePaths=/var/lib/naliwajka-radio
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+# @resources stays allowed: ffmpeg sets its threads' scheduling (blocked, it dies with no message)
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap @module
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+LimitNOFILE=4096
+TasksMax=256
 MemoryMax=1G
 CPUQuota=150%
 Nice=10

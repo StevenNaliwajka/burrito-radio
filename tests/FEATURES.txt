@@ -12,7 +12,6 @@ play     | paste a YouTube playlist link: every song queued                  | t
 play     | type song words: the first YouTube hit                            | test_relay.py   | test_search_words
 play     | YouTube link shapes: youtu.be, shorts, music, mobile, &t=, mixes   | test_relay.py   | test_video_link_variants
 play     | YouTube link shapes are parsed strictly                           | test_relay.py   | test_parse
-play     | a direct .mp3/.ogg link plays                                     | test_relay.py   | test_direct_audio_links
 play     | songs play in order, the server clock moves the queue on          | test_radio.lua  | songs play in order and the clock moves the queue on
 play     | the next songs download ahead so switching is instant             | test_radio.lua  | a playlist link queues every song; the next ones are prefetched
 play     | live streams / over-long videos refused with a reason             | test_relay.py   | test_live_and_too_long_are_refused_with_a_reason
@@ -138,3 +137,17 @@ ship     | the server registers the spawn-menu picture for download          | t
 live     | the addon loads, category Burrito, the server reaches the relay   | test_live.py    | test_1_loaded_and_relay_reachable
 live     | a real YouTube link plays through the relay                       | test_live.py    | test_2_youtube_plays_through_the_relay
 live     | pause, resume and skip on a real server                           | test_live.py    | test_3_pause_resume_skip
+
+# ---- the cache, and radios that are always there
+cache    | songs unused for 30 min are cleared; the owner's library stays     | test_relay.py   | test_songs_clear_after_30_minutes_unused_library_stays
+cache    | a song still playing is kept alive (not cleared under players)    | test_radio.lua  | keep-alive: a long song that is still playing
+cache    | a pinned radio finds its song again after a long downtime         | test_radio.lua  | a pinned radio whose song the relay forgot finds it again
+cache    | a cleanup puts a pinned radio back at the same spot and angle      | test_radio.lua  | a cleanup brings a pinned radio back at the same spot and angle
+
+# ---- security (only YouTube/Spotify, nothing else reachable)
+security | only YouTube and Spotify links; files, internal URLs, other sites refused | test_relay.py | test_only_youtube_and_spotify_links_play
+security | Spotify links play their YouTube twin (Spotify audio is DRM'd)    | test_relay.py   | test_spotify_links_play_their_youtube_twin
+security | typed words never become yt-dlp options                           | test_relay.py   | test_typed_words_cannot_become_yt_dlp_options
+security | library files must be inside library/ (no path tricks)            | test_relay.py   | test_library_files_must_be_inside_the_library
+security | HTTP limits: long paths, other methods, busy lookups, wrong keys   | test_relay.py   | test_http_limits
+security | the relay is sandboxed and cannot reach the LAN                   | test_ship.py    | test_relay_cannot_reach_the_lan_and_is_sandboxed

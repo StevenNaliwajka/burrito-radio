@@ -728,5 +728,50 @@ test("model: every texture draw-op is one the game knows how to draw", function(
     end
 end)
 
+-- ------------------------------------------------------------------ cache + boot
+test("keep-alive: a long song that is still playing is not cleared by the relay", function()
+    local W = world()
+    W.relay.fetch["yt-aaaaaaaaaaa"] = { { state = "ready", duration = 3600 } }   -- an hour-long mix
+    W:cmd(W.owner, "add", { id = W.id, q = "song a" }) W:advance(2.1)
+    local function fetches()
+        local n = 0
+        for _, u in ipairs(W.httpLog) do if u:find("fetch?key=yt-aaaaaaaaaaa", 1, true) then n = n + 1 end end
+        return n
+    end
+    local before = fetches()
+    W:advance(301)
+    truthy(fetches() > before, "the server told the relay it is still in use")
+end)
+
+test("a pinned radio whose song the relay forgot finds it again after a boot", function()
+    local W = world()
+    W:cmd(W.owner, "add", { id = W.id, q = "song a" }) W:advance(2.1)
+    W:cmd(W.admin, "pin", { id = W.id, on = true }) W:advance(0.5)
+    W:advance(60)
+    W:run("ShutDown")
+    local W2 = shim.new()
+    W2.data = W.data
+    W2.relay.forget = { ["yt-aaaaaaaaaaa"] = true }    -- cleared after 30 min, notes gone after a week
+    W2:boot()
+    W2:player("someone")
+    W2:advance(8)
+    local st = BRadio.Stations.p1
+    truthy(st and IsValid(st.ent), "the radio is back where it was")
+    eq(st.ent:GetPos().x, 0)
+    eq(st.state, "playing", "and playing its song again")
+    eq(st.current.key, "yt-aaaaaaaaaaa")
+end)
+
+test("a cleanup brings a pinned radio back at the same spot and angle", function()
+    local W = world()
+    W.ent:SetPos(V(2161.7, -751.8, 177.4))
+    W.ent:SetAngles(shim.Angle(0, -154.6, 0))
+    W:cmd(W.admin, "pin", { id = W.id, on = true }) W:advance(0.5)
+    W:cleanup()
+    local e = BRadio.Stations.p1.ent
+    eq(e:GetPos().x, 2161.7) eq(e:GetPos().y, -751.8) eq(e:GetAngles().y, -154.6)
+    eq(e.phys.motion, false, "frozen")
+end)
+
 io.write(string.format("\n%d passed, %d failed\n", pass, fail))
 os.exit(fail == 0 and 0 or 1)

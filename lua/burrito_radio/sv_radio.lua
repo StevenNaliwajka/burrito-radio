@@ -192,6 +192,15 @@ function BRadio.Load(st)
         if stale() then return end
         R.Fetch(tr.key, function(ok, res)
             if stale() then return end
+            -- the relay forgot this song (its cache clears after 30 min, its notes
+            -- after a week): a pinned radio coming back finds it again, once
+            if not ok and tostring(res):find("resolve it first", 1, true) and not tr.reresolved then
+                local src = BRadio.SourceOf(tr.key)
+                if src then
+                    tr.reresolved = true
+                    return R.Resolve(src, function() if not stale() then try() end end)
+                end
+            end
             if not ok then return failTrack(st, tr, res) end
             if res.state == "ready" then
                 if (tonumber(res.duration) or 0) > 0 then tr.duration = tonumber(res.duration) end
@@ -264,6 +273,23 @@ function BRadio.Advance(st, reason)
     st.current = nxt
     BRadio.Load(st)
 end
+
+-- where a track came from, to find it again (nil for library files)
+function BRadio.SourceOf(key)
+    local yt = tostring(key):match("^yt%-([%w_-]+)$")
+    if yt then return "https://www.youtube.com/watch?v=" .. yt end
+    local sp = tostring(key):match("^sp%-(%w+)$")
+    if sp then return "spotify:track:" .. sp end
+end
+
+-- keep-alive: the relay clears songs nobody used for 30 minutes; a long song that
+-- is still playing (or paused) is "used", so it is not cleared under the players
+function BRadio.KeepAlive()
+    for _, st in pairs(S) do
+        if st.current and (st.state == "playing" or st.state == "paused") then R.Fetch(st.current.key, function() end) end
+    end
+end
+timer.Create("bradio_keepalive", 300, 0, function() BRadio.KeepAlive() end)
 
 -- the one timer: songs that ran out move on
 function BRadio.Tick()

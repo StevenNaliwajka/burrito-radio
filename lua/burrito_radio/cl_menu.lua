@@ -3,8 +3,8 @@
 
       top      what is playing, how far in, play/pause, skip (or vote to skip),
                stop, the radio's volume, and your own mute
-      add      paste a YouTube video or playlist link, a direct .mp3/.ogg link,
-               or just type a song name (the first YouTube hit)
+      add      paste a YouTube video/playlist or a Spotify song/album/playlist
+               link, or just type a song name (the first YouTube hit)
       Queue    what is coming up; remove songs (yours, or any if you run the
                radio), move one to the top, save one to the library
       Library  the server owner's preloaded music and saved playlists
@@ -203,7 +203,7 @@ function Menu.Open(id, canControl, isAdmin, canAdd)
     local entry = vgui.Create("DTextEntry", add)
     entry:Dock(FILL)
     entry:SetFont("BRadioMenu")
-    entry:SetPlaceholderText("Paste a YouTube video or playlist link, an .mp3 link, or type a song name")
+    entry:SetPlaceholderText("Paste a YouTube or Spotify link (song, playlist, album), or type a song name")
     Menu.entry = entry
     local function doAdd(nextUp)
         local q = string.Trim(entry:GetValue())

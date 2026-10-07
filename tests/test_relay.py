@@ -18,6 +18,12 @@ import radio_relay as rr  # noqa: E402
 FAKE_YTDLP = r'''#!/usr/bin/env python3
 import json, sys, os
 a = sys.argv[1:]
+log = os.environ.get("FAKE_ARGV")
+if log:
+    open(log, "a").write(json.dumps(a) + "\n")
+for need in ("--ignore-config", "--no-plugin-dirs", "--use-extractors"):
+    assert need in a, "yt-dlp must run with " + need
+assert a[-2] == "--", "the target always comes after --"
 target = a[-1]
 if "-J" in a:
     if "playlist?list=" in target:
@@ -52,13 +58,10 @@ print(out)
 FAKE_FFMPEG = r'''#!/usr/bin/env python3
 import sys, shutil
 a = sys.argv[1:]
-src = a[a.index("-i") + 1]
-if src.startswith("http"):
-    if "missing" in src:
-        sys.stderr.write("Server returned 404 Not Found\n"); sys.exit(1)
-    open(a[-1], "wb").write(b"URLAUDIO" * 500)
-else:
-    shutil.copy(src, a[-1])
+assert a[a.index("-protocol_whitelist") + 1] == "file", "ffmpeg must be limited to local files"
+src, dst = a[a.index("-i") + 1], a[-1]
+assert src.startswith("file:") and dst.startswith("file:"), (src, dst)
+shutil.copy(src[5:], dst[5:])
 '''
 FAKE_FFPROBE = "#!/bin/sh\necho 213.4\n"
 
@@ -251,23 +254,108 @@ class RelayTest(unittest.TestCase):
 
 
     # ------------------------------------------------------------ more features
-    def test_direct_audio_links(self):
-        url = "https://cdn.example.com/music/Night%20Drive.mp3"
-        code, r = self.json("/resolve?q=" + urllib.request.quote(url, safe=""))
-        self.assertEqual(code, 200)
-        t = r["tracks"][0]
-        self.assertTrue(t["key"].startswith("url-"))
-        self.assertEqual(t["title"], "Night Drive.mp3")
-        self.json("/fetch?key=" + t["key"])
-        self.assertEqual(self.wait_ready(t["key"])["state"], "ready")
-        code, body, _ = self.get("/a/%s.mp3" % t["key"])
-        self.assertEqual((code, len(body)), (200, 4000))
-        code, r = self.json("/resolve?q=" + urllib.request.quote("https://cdn.example.com/missing.mp3", safe=""))
-        k = r["tracks"][0]["key"]
-        self.json("/fetch?key=" + k)
-        s = self.wait_ready(k)
+    def test_only_youtube_and_spotify_links_play(self):
+        for bad in ("https://cdn.example.com/music/Night%20Drive.mp3", "http://10.9.1.13:8090/radio/health",
+                    "http://127.0.0.1:22/", "file:///etc/passwd", "ftp://example.com/a.mp3",
+                    "https://vimeo.com/76979871", "https://soundcloud.com/a/b", "javascript:alert(1)",
+                    "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ", "example.com/song.mp3",
+                    "https://open.spotify.com.evil.example/track/4cOdK2wGLETKBW3PvgPWqT",
+                    "data:audio/mp3;base64,AAAA"):
+            with self.subTest(link=bad):
+                code, r = self.json("/resolve?q=" + urllib.request.quote(bad, safe=""))
+                self.assertEqual(code, 400)
+                self.assertIn("only YouTube and Spotify", r["error"])
+        # old url- keys (from before) can never be fetched
+        self.relay.remember("url-0123456789abcdef", source="http://169.254.169.254/latest", title="x")
+        self.json("/fetch?key=url-0123456789abcdef")
+        self.assertEqual(self.json("/fetch?key=url-0123456789abcdef")[0], 400)
+
+    def test_spotify_links_play_their_youtube_twin(self):
+        r = self.relay
+        pages = {
+            ("track", "4cOdK2wGLETKBW3PvgPWqT"): {"name": "Never Gonna Give You Up", "artists": [{"name": "Rick Astley"}], "duration": 213573},
+            ("playlist", "37i9dQZF1DXcBWIGoYBM5M"): {"name": "Top Hits", "trackList": [
+                {"uri": "spotify:track:11hcBLPtbMp4aQI6zGQLub", "title": "Patient Zero", "subtitle": "Taylor Swift", "duration": 225868},
+                {"uri": "spotify:track:bad", "title": "Broken uri", "subtitle": "x", "duration": 1000},
+                {"uri": "spotify:track:4EoJ151oQ5jY48z4RhSE96", "title": "the cure", "subtitle": "Olivia\u00a0Rodrigo", "duration": 297090}]},
+        }
+        asked = []
+        r.spotify_page = lambda kind, sid: asked.append((kind, sid)) or pages[(kind, sid)]
+        for link in ("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=abc",
+                     "https://open.spotify.com/intl-de/track/4cOdK2wGLETKBW3PvgPWqT",
+                     "spotify:track:4cOdK2wGLETKBW3PvgPWqT"):
+            code, res = self.json("/resolve?q=" + urllib.request.quote(link, safe=""))
+            self.assertEqual(code, 200, link)
+            self.assertEqual(res["tracks"][0]["key"], "sp-4cOdK2wGLETKBW3PvgPWqT")
+            self.assertEqual(res["tracks"][0]["title"], "Rick Astley - Never Gonna Give You Up")
+            self.assertEqual(res["tracks"][0]["duration"], 213)
+        code, res = self.json("/resolve?q=" + urllib.request.quote("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", safe=""))
+        self.assertEqual([t["title"] for t in res["tracks"]], ["Taylor Swift - Patient Zero", "Olivia Rodrigo - the cure"])
+        # fetching it finds the song on YouTube (first search hit) and downloads that
+        self.json("/fetch?key=sp-4cOdK2wGLETKBW3PvgPWqT")
+        self.assertEqual(self.wait_ready("sp-4cOdK2wGLETKBW3PvgPWqT")["state"], "ready")
+        self.assertEqual(r.track("sp-4cOdK2wGLETKBW3PvgPWqT")["yt"], "eeeeeeeeeee")
+
+    def test_typed_words_cannot_become_yt_dlp_options(self):
+        argv = os.path.join(self.tmp.name, "argv")
+        os.environ["FAKE_ARGV"] = argv
+        try:
+            for q in ("--exec rm -rf /", "-o /etc/passwd", "--config-location /tmp/x", "song\x00name"):
+                self.json("/resolve?q=" + urllib.request.quote(q, safe=""))
+            for line in open(argv).read().splitlines():
+                a = json.loads(line)
+                self.assertNotIn("--exec", a[:-1])
+                self.assertNotIn("--config-location", a[:-1])
+                self.assertTrue(a[-1].startswith("ytsearch1:") and not a[-1][len("ytsearch1:"):].startswith("-"), a[-1])
+                self.assertNotIn("\x00", a[-1])
+        finally:
+            os.environ.pop("FAKE_ARGV", None)
+
+    def test_library_files_must_be_inside_the_library(self):
+        self.relay.remember("lib-0123456789abcdef", source="/etc/passwd", title="x", pinned=True)
+        self.json("/fetch?key=lib-0123456789abcdef")
+        s = self.wait_ready("lib-0123456789abcdef")
         self.assertEqual(s["state"], "error")
-        self.assertIn("404", s["error"])
+        self.assertIn("inside library", s["error"])
+
+    def test_songs_clear_after_30_minutes_unused_library_stays(self):
+        r = self.relay
+        self.assertEqual(r.cfg.cache_ttl, 1800)
+        now = time.time()
+        for key, used, pinned in (("yt-oldoldoldol", now - 1801, None), ("yt-freshfreshf", now - 1700, None),
+                                  ("lib-0123456789abcdef", now - 99999, True)):
+            with open(r.path(key), "wb") as f:
+                f.write(b"x")
+            r.remember(key, used=int(used), pinned=pinned, source="x")
+        with open(os.path.join(r.cfg.cache, "yt-halfhalfhal.mp3.part"), "wb") as f:
+            f.write(b"x")
+        os.utime(os.path.join(r.cfg.cache, "yt-halfhalfhal.mp3.part"), (now - 700, now - 700))
+        removed = r.sweep(now)
+        left = sorted(os.listdir(r.cfg.cache))
+        self.assertEqual(removed, ["yt-oldoldoldol"])
+        self.assertEqual(left, ["lib-0123456789abcdef.mp3", "yt-freshfreshf.mp3"])
+        # playing it (a player's download) keeps it alive
+        code, _, _ = self.get("/a/yt-freshfreshf.mp3")
+        self.assertEqual(r.sweep(now + 1000), [], "used just now")
+
+    def test_http_limits(self):
+        self.assertEqual(self.get("/" + "a" * 3000)[0], 414)
+        req = urllib.request.Request(self.base + "/health", data=b"x", method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(e.exception.code, 405)
+        self.assertEqual(self.json("/resolve?q=" + "a" * 600)[0], 400, "over-long queries refused")
+        # yt-dlp is heavy: when every lookup slot is busy, the next is told to retry
+        for _ in range(self.relay.cfg.max_lookups):
+            self.relay.lookups.acquire()
+        try:
+            self.assertEqual(self.json("/resolve?q=hello")[0], 429)
+        finally:
+            for _ in range(self.relay.cfg.max_lookups):
+                self.relay.lookups.release()
+        # the key is compared in constant time, and a wrong one is refused
+        fwd = {"X-Forwarded-For": "203.0.113.9", "X-Radio-Key": "sekrit-but-wrong"}
+        self.assertEqual(self.get("/library", fwd)[0], 403)
 
     def test_library_key_resolves_to_itself(self):
         lib = self.relay.cfg.library

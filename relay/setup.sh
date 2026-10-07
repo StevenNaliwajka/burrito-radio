@@ -48,10 +48,33 @@ RADIO_MAX_SECONDS=10800
 RADIO_CACHE_MB=6000
 RADIO_BITRATE=96k
 RADIO_WORKERS=2
+RADIO_CACHE_TTL=1800
+# Internal addresses (besides this box, loopback and its DNS) the relay may talk to:
+# the reverse proxy in front of it and any OTHER game server using it. Every other
+# private network is blocked, so a hostile download cannot reach the LAN.
+RADIO_TRUSTED_IPS=
 CONF
   chmod 0640 "$ETC/relay.env"
   chgrp radio "$ETC/relay.env"
 fi
+
+# settings added in later versions, for a relay.env written by an older one
+grep -q '^RADIO_CACHE_TTL=' "$ETC/relay.env" || echo 'RADIO_CACHE_TTL=1800' >> "$ETC/relay.env"
+grep -q '^RADIO_TRUSTED_IPS=' "$ETC/relay.env" || echo 'RADIO_TRUSTED_IPS=' >> "$ETC/relay.env"
+
+say "network allowlist"
+trusted="$(sed -n 's/^RADIO_TRUSTED_IPS=//p' "$ETC/relay.env" | tr -d '"')"
+dns="$(awk '/^nameserver/{print $2}' /etc/resolv.conf | tr '\n' ' ')"
+self="$(hostname -I 2>/dev/null)"
+install -d -m 0755 /etc/systemd/system/naliwajka-radio.service.d
+cat > /etc/systemd/system/naliwajka-radio.service.d/network.conf <<NET
+# Written by relay/setup.sh. The relay may reach the internet (YouTube, Spotify) and
+# only these internal addresses: loopback, this box, its DNS, RADIO_TRUSTED_IPS.
+[Service]
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost $self $dns $trusted
+NET
+cat /etc/systemd/system/naliwajka-radio.service.d/network.conf | tail -1
 
 say "yt-dlp + deno"
 if [ ! -x "$APP/bin/yt-dlp" ] || [ ! -x "$APP/bin/deno" ]; then "$APP/update-tools.sh"; fi

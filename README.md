@@ -7,8 +7,8 @@ Public: https://github.com/StevenNaliwajka/burrito-radio (developed on GitLab `r
 (www.naliwajka.com, gmod.naliwajka.com) and the relay's system paths and service names.*
 
 A Garry's Mod radio you can put anywhere: a **Crosley Cooper** (the blue
-CR1121A-EB) that plays **YouTube videos and playlists**, direct `.mp3/.ogg`
-links, and the **server owner's preloaded music**. Everyone near it hears it,
+CR1121A-EB) that plays **YouTube videos and playlists**, Spotify links (matched to
+the same song on YouTube), and the **server owner's preloaded music**. Everyone near it hears it,
 positioned in 3D, fading out with distance and muffled behind walls.
 That gives you music going off in the distance on gmod.naliwajka.com.
 
@@ -30,7 +30,7 @@ That gives you music going off in the distance on gmod.naliwajka.com.
   One per player (`bradio_max_per_player`). Admins in any mode: look at a spot and run
   `bradio_place` in console for a **pinned** radio (stays through rounds, map changes, restarts).
 * **Press E on it** for the menu:
-  * paste a YouTube **video or playlist** link, an `.mp3` link, or just type a song name;
+  * paste a YouTube **video or playlist** or a **Spotify** song/album/playlist link, or just type a song name (only YouTube and Spotify are accepted);
     **Add** puts it at the end, **Play next** (owner/admins) right after the current song
   * **Queue** tab: remove songs (yours; the owner/admins remove any), move to top, clear
   * **Skip**: the owner, admins and whoever added the song skip at once; anyone else votes,
@@ -94,6 +94,31 @@ yt-dlp updates itself daily (`naliwajka-radio-update.timer`), because YouTube br
 versions every few weeks.
 
 Settings: `/etc/naliwajka-radio/relay.env`. Logs: `journalctl -u naliwajka-radio`.
+
+## Security
+
+* **Only YouTube and Spotify.** Players can paste YouTube videos/playlists or Spotify
+  songs/albums/playlists, or type words (a YouTube search). Anything else (a direct
+  file link, another site, an internal address, `file://`) is refused, so a player
+  can never make the server fetch a URL of their choosing. Spotify audio is DRM'd,
+  so a Spotify link plays the same song's YouTube upload (first search hit).
+* **The tools are fenced in.** Every URL handed to yt-dlp is built by the relay from a
+  validated id; yt-dlp may only use its YouTube extractors and loads no config or
+  plugins; typed words can never become options. ffmpeg may only open the local file
+  yt-dlp wrote and re-encodes it into a fresh MP3 (no metadata, no attachments), so
+  players only ever download a plain MP3 the relay made, never a file from the web.
+* **The relay is boxed in** (systemd): its own user, no capabilities, read-only system
+  except its data folder, no devices, IP sockets only, and a network allowlist: it can
+  reach the internet but no internal address except loopback, its DNS, and
+  `RADIO_TRUSTED_IPS` (the reverse proxy and other game servers).
+* **The public side serves files only**: `/radio/a/<key>.mp3` for songs already on
+  disk, `/radio/health`. Lookups and downloads need the game server's own box or
+  `X-Radio-Key` (compared in constant time). Long requests, other HTTP methods, too
+  many connections and too many lookups at once are refused; slow clients time out.
+* **In game**: every menu command is checked on the server (permissions, distance,
+  per-player rate limits, a hard queue cap, malformed messages dropped).
+* **Cache**: songs nobody has used for 30 minutes are deleted (`RADIO_CACHE_TTL`); a
+  song still playing is kept alive by the game server. The owner's library stays.
 
 ## The model
 

@@ -81,6 +81,19 @@ class ShipTest(unittest.TestCase):
         timer = read("relay", "naliwajka-radio-update.timer")
         self.assertIn("OnCalendar=", timer, "yt-dlp updates on a schedule")
 
+    def test_relay_cannot_reach_the_lan_and_is_sandboxed(self):
+        unit = read("relay", "naliwajka-radio.service")
+        for line in ("PrivateDevices=true", "CapabilityBoundingSet=", "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX",
+                     "SystemCallFilter=@system-service", "ProtectKernelModules=true", "RestrictNamespaces=true"):
+            self.assertIn(line, unit)
+        setup = read("relay", "setup.sh")
+        self.assertIn("IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16", setup)
+        self.assertIn("IPAddressAllow=localhost $self $dns $trusted", setup)
+        relay = read("relay", "radio_relay.py")
+        self.assertIn('"--use-extractors", "youtube,youtube:tab,youtube:playlist,youtube:search"', relay)
+        self.assertIn('"-protocol_whitelist", "file"', relay)
+        self.assertNotIn("shell=True", relay)
+
     def test_relay_setup_never_overwrites_the_owners_config(self):
         setup = read("relay", "setup.sh")
         self.assertRegex(setup, r'if \[ ! -f "\$ETC/relay.env" \]', "relay.env is written once")
