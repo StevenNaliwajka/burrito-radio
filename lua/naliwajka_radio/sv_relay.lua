@@ -5,7 +5,7 @@
       nradio_relay_url   what THIS server calls (resolve, fetch, library);
                          default http://127.0.0.1:8090/radio
       nradio_public_url  what PLAYERS' games download the MP3s from;
-                         default https://naliwajka.com/radio
+                         default https://www.naliwajka.com/radio
 
     GMod refuses HTTP() to 127.0.0.1 and private addresses unless srcds was
     started with -allowlocalhttp. Without it every request fails with
@@ -19,7 +19,7 @@ local R = NRadio.Relay
 
 local cvRelay = CreateConVar("nradio_relay_url", "http://127.0.0.1:8090/radio", FCVAR_ARCHIVE,
     "Radio: where the server reaches the relay")
-local cvPublic = CreateConVar("nradio_public_url", "https://naliwajka.com/radio", FCVAR_ARCHIVE,
+local cvPublic = CreateConVar("nradio_public_url", "https://www.naliwajka.com/radio", FCVAR_ARCHIVE,
     "Radio: where players download the audio from")
 local cvKey = CreateConVar("nradio_relay_key", "", bit.bor(FCVAR_ARCHIVE, FCVAR_PROTECTED, FCVAR_DONTRECORD),
     "Radio: the relay's RADIO_KEY (only when it is on another box)")

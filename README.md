@@ -7,7 +7,7 @@ positioned in 3D, fading out with distance and muffled behind walls.
 That gives you music going off in the distance on gmod.naliwajka.com.
 
 ```
- player's game  ──GET https://naliwajka.com/radio/a/yt-<id>.mp3──▶ EdgeGate ──▶ relay :8090
+ player's game  ──GET https://www.naliwajka.com/radio/a/yt-<id>.mp3──▶ EdgeGate ──▶ relay :8090
        ▲                                                                         ▲
        │ state (net): what plays, since when                                     │ resolve / fetch
  GMod server (addon) ─────────────── http://127.0.0.1:8090/radio ────────────────┘ (yt-dlp + ffmpeg)
@@ -54,7 +54,7 @@ Pinned radios and their queues: `data/naliwajka_radio/maps/<map>.json`.
 | Convar | Default | |
 |---|---|---|
 | `nradio_relay_url` | `http://127.0.0.1:8090/radio` | where the server reaches the relay |
-| `nradio_public_url` | `https://naliwajka.com/radio` | where players' games download the audio |
+| `nradio_public_url` | `https://www.naliwajka.com/radio` | where players' games download the audio |
 | `nradio_relay_key` | *(empty)* | the relay's `RADIO_KEY`, only when it runs on another box |
 | `nradio_add` | `0` | `1` = only the radio's owner and admins may queue |
 | `nradio_user_tracks` | `25` | most songs one player may have queued on a radio |

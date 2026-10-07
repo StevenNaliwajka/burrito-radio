@@ -297,8 +297,8 @@ test("the state sent to clients carries the queue and the public URL", function(
     eq(t.id, W.id)
     eq(t.cur.k, "yt-p1p1p1p1p1p")
     eq(#t.q, 2)
-    eq(t.base, "https://naliwajka.com/radio")
-    eq(NRadio.TrackURL(t.base, t.cur.k), "https://naliwajka.com/radio/a/yt-p1p1p1p1p1p.mp3")
+    eq(t.base, "https://www.naliwajka.com/radio")
+    eq(NRadio.TrackURL(t.base, t.cur.k), "https://www.naliwajka.com/radio/a/yt-p1p1p1p1p1p.mp3")
 end)
 
 test("spawn limit: one radio per player unless admin", function()

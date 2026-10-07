@@ -9,7 +9,7 @@ and keep it; every player then downloads the same file from here.
 
 Two halves, two audiences:
 
-  PUBLIC  (players' game clients, through EdgeGate at https://naliwajka.com/radio)
+  PUBLIC  (players' game clients, through EdgeGate at https://www.naliwajka.com/radio)
       GET  /radio/health                 {"ok": true, ...}
       GET  /radio/a/<key>.mp3            a ready track, with Range support so a
                                          player who walks up mid-song can seek
@@ -227,6 +227,10 @@ class Relay:
         vid = d.get("id")
         if not vid or not YT_ID_RE.match(vid):
             raise ValueError("not a YouTube video")
+        if d.get("is_live") or d.get("live_status") in ("is_live", "is_upcoming"):
+            raise ValueError("live streams can't be played, only videos")
+        if d.get("duration") and d["duration"] > self.cfg.max_seconds:
+            raise ValueError("too long (over %d min)" % (self.cfg.max_seconds // 60))
         e = self.entry("yt-" + vid, d.get("title"), d.get("duration"),
                        "https://www.youtube.com/watch?v=" + vid)
         self.save_meta()
@@ -245,6 +249,8 @@ class Relay:
                 continue
             title = e.get("title") or ""
             if title in ("[Private video]", "[Deleted video]"):
+                continue
+            if e.get("live_status") in ("is_live", "is_upcoming"):
                 continue
             dur = e.get("duration")
             if dur and dur > self.cfg.max_seconds:
