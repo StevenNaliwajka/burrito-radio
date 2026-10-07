@@ -317,5 +317,14 @@ test("the model builds and its bounds fit the case", function()
     truthy(mx[2] - mn[2] > 12 and mx[2] - mn[2] < 14, "about 13 units wide at scale 2.5")
 end)
 
+test("per-box settings come from cfg/burrito_radio.cfg", function()
+    local W = world({ noRadio = true })
+    W.data["cfg/burrito_radio.cfg"] = '// comment\nbradio_relay_url "http://10.9.1.13:8090/radio"\nbradio_relay_key abc123\nsv_cheats 1\n'
+    eq(BRadio.LoadLocalCfg(), 2)
+    eq(W.cvars.bradio_relay_url, "http://10.9.1.13:8090/radio")
+    eq(W.cvars.bradio_relay_key, "abc123")
+    eq(W.cvars.sv_cheats, nil, "only the radio's own convars")
+end)
+
 io.write(string.format("\n%d passed, %d failed\n", pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -201,6 +201,11 @@ function M.new()
         }
     end
     G.concommand = { Add = function(n, fn) W.cmds[n] = fn end }
+    G.GetConVar = function(name)
+        if W.cvars[name] == nil then return nil end
+        return { SetString = function(_, v) W.cvars[name] = v end }
+    end
+    G.RunConsoleCommand = function(name, v) W.cvars[name] = v end
 
     -- net: every message is captured as { name, fields..., to }
     local cur

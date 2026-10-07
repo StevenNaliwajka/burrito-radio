@@ -28,14 +28,25 @@ local cvKey = CreateConVar("bradio_relay_key", "", bit.bor(FCVAR_ARCHIVE, FCVAR_
 -- own box) go in garrysmod/cfg/burrito_radio.cfg, run once the convars exist. It
 -- keeps the key out of server.cfg (often managed by something else) and off the
 -- command line, where `ps` would show it.
-local function execLocal()
-    if file.Exists and file.Exists("cfg/burrito_radio.cfg", "GAME") then
-        game.ConsoleCommand("exec burrito_radio.cfg\n")
+-- Read here rather than `exec`ed: an exec queued while srcds is still starting (or
+-- hibernating) is dropped, which left a test server on the default relay address.
+function BRadio.LoadLocalCfg()
+    local text = file.Read and file.Read("cfg/burrito_radio.cfg", "GAME")
+    if not text then return 0 end
+    local n = 0
+    for line in text:gmatch("[^\r\n]+") do
+        local name, value = line:match('^%s*(bradio_[%w_]+)%s+"([^"]*)"')
+        if not name then name, value = line:match("^%s*(bradio_[%w_]+)%s+(%S+)") end
+        local cv = name and GetConVar(name)
+        if cv then
+            if cv.SetString then cv:SetString(value) else RunConsoleCommand(name, value) end
+            n = n + 1
+        end
     end
+    return n
 end
-execLocal()
--- an exec queued while the server is still starting can be dropped: run it again once up
-hook.Add("InitPostEntity", "bradio_cfg", execLocal)
+BRadio.LoadLocalCfg()
+hook.Add("InitPostEntity", "bradio_cfg", function() BRadio.LoadLocalCfg() end)
 
 R.Problem = nil   -- the last connection failure, shown to admins in the menu
 
