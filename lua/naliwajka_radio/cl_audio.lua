@@ -47,6 +47,8 @@ net.Receive(NET.State, function()
     local t = readTable()
     if not t or not t.id then return end
     t.received = CurTime()
+    -- the wire uses short names; NRadio.Position (shared) reads the server's
+    t.current, t.startedAt, t.pausedAt = t.cur, t.at, t.pa
     CL.Stations[t.id] = t
     hook.Run("NRadioState", t.id, t)
 end)

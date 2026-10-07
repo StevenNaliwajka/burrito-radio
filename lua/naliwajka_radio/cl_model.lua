@@ -224,6 +224,11 @@ end
 concommand.Add("nradio_rebuild", function() D.Rebuild() end)
 hook.Add("OnScreenSizeChanged", "nradio_rebuild", function() D.texturesBuilt = false end)
 
+-- textures are drawn outside any other render pass: before the frame, once
+hook.Add("PreRender", "nradio_textures", function()
+    if not D.texturesBuilt and #ents.FindByClass(NRadio.Class) > 0 then D.BuildTextures() end
+end)
+
 -- --------------------------------------------------------------- display
 surface.CreateFont("NRadioLED", { font = "Consolas", size = 120, weight = 700, antialias = true })
 surface.CreateFont("NRadioLEDSmall", { font = "Consolas", size = 30, weight = 600, antialias = true, extended = true })
@@ -293,7 +298,7 @@ end
 local lightVec = Vector(1, 1, 1)
 function D.Radio(ent)
     if not D.meshes then D.BuildMeshes() end
-    if not D.texturesBuilt then D.BuildTextures() end
+    if not D.texturesBuilt then return end   -- PreRender draws them, next frame
 
     -- the room's light at the radio, lifted a little so it never goes pitch black
     local lc = render.GetLightColor(ent:WorldSpaceCenter())

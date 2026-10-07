@@ -116,6 +116,8 @@ Vec.__index = Vec
 local function Vector(x, y, z) return setmetatable({ x = x or 0, y = y or 0, z = z or 0 }, Vec) end
 function Vec:Distance(o) return math.sqrt((self.x - o.x) ^ 2 + (self.y - o.y) ^ 2 + (self.z - o.z) ^ 2) end
 Vec.__add = function(a, b) return Vector(a.x + b.x, a.y + b.y, a.z + b.z) end
+Vec.__sub = function(a, b) return Vector(a.x - b.x, a.y - b.y, a.z - b.z) end
+function Vec:DistToSqr(o) return self:Distance(o) ^ 2 end
 Vec.__mul = function(a, b)
     if type(a) == "number" then a, b = b, a end
     return Vector(a.x * b, a.y * b, a.z * b)

@@ -17,8 +17,9 @@ if [ -z "$LUA" ]; then
 fi
 if [ -n "$LUA" ]; then
   (cd "$ROOT" && "$LUA" tests/test_radio.lua) || rc=1
+  (cd "$ROOT" && "$LUA" tests/test_client.lua) || rc=1
 else
-  docker run --rm -v "$ROOT:/w:ro" -w /w "$IMAGE" lua tests/test_radio.lua || rc=1
+  docker run --rm -v "$ROOT:/w:ro" -w /w "$IMAGE" sh -c "lua tests/test_radio.lua && lua tests/test_client.lua" || rc=1
 fi
 echo "▶ python: relay"
 (cd "$ROOT" && python3 -m unittest discover -s tests -p 'test_*.py') || rc=1
