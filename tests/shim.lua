@@ -151,6 +151,8 @@ function M.new()
     G.math.Round = function(v) return math.floor(v + 0.5) end
     G.string.Trim = function(s) return (tostring(s):gsub("^%s+", ""):gsub("%s+$", "")) end
     G.AddCSLuaFile = function() end
+    W.resources = {}
+    G.resource = { AddFile = function(p) W.resources[#W.resources + 1] = p end }
     G.include = function(p) return dofile("lua/" .. p) end
     G.ErrorNoHalt = function(m) W.printed[#W.printed + 1] = "ERROR " .. m end
     G.os.time = function() return 1000 end

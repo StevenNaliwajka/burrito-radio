@@ -8,7 +8,7 @@ import re
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-AREAS = {"play", "queue", "library", "perms", "pinned", "sound", "menu", "model", "relay", "ship"}
+AREAS = {"play", "queue", "library", "perms", "pinned", "sound", "menu", "model", "relay", "ship", "live"}
 
 
 def features():
@@ -44,7 +44,7 @@ class FeatureListTest(unittest.TestCase):
         claimed = {}
         for _, _, _, fname, name in features():
             claimed.setdefault(fname, []).append(name)
-        for fname in ("test_radio.lua", "test_client.lua", "test_relay.py", "test_ship.py"):
+        for fname in ("test_radio.lua", "test_client.lua", "test_relay.py", "test_ship.py", "test_live.py"):
             for t in tests_in(fname):
                 with self.subTest(test=t):
                     self.assertTrue(any(c in t for c in claimed.get(fname, [])),

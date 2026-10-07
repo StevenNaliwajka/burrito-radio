@@ -5,6 +5,7 @@ checked against the product photos without starting GMod.
 
     lua tools/preview/export.lua > model.json      (or the docker one-liner in docs)
     python3 tools/preview/render.py model.json out_dir [--size 900]
+    python3 tools/preview/render.py --icon model.json materials/entities/burrito_radio.png
 
 Writes front.png, three_quarter.png, back.png, side.png and sheet.png (all four).
 """
@@ -116,7 +117,7 @@ def look(eye, target, fov, w, h):
     return proj
 
 
-def render(model, tex, eye, target, w, h, fov=30, bg=(0.96, 0.96, 0.97)):
+def render(model, tex, eye, target, w, h, fov=30, bg=(0.96, 0.96, 0.97), alpha=False):
     ss = 2
     W, H = w * ss, h * ss
     proj = look(eye, target, fov, W, H)
@@ -162,7 +163,12 @@ def render(model, tex, eye, target, w, h, fov=30, bg=(0.96, 0.96, 0.97)):
             c = t[ty, tx] * sh[..., None]
             sub[m] = z[m]
             color[y0:y1 + 1, x0:x1 + 1][m] = c[m]
-    img = Image.fromarray((np.clip(color, 0, 1) * 255).astype(np.uint8))
+    rgb = (np.clip(color, 0, 1) * 255).astype(np.uint8)
+    if alpha:
+        a = np.where(np.isinf(depth), 0, 255).astype(np.uint8)
+        img = Image.fromarray(np.dstack([rgb, a]), "RGBA")
+    else:
+        img = Image.fromarray(rgb)
     return img.resize((w, h), Image.LANCZOS)
 
 
@@ -171,7 +177,19 @@ def display_overlay(model):
     return None
 
 
+def icon(model, path, size=512):
+    """The spawn-menu picture: the radio at three-quarters, filling the frame, transparent."""
+    tex = {k: draw_texture(v) for k, v in model["textures"].items()}
+    im = render(model, tex, (11.5, 9.0, 6.8), (0, 0.15, 2.05), size, size, fov=30, alpha=True)
+    im.save(path)
+    return im
+
+
 def main():
+    if sys.argv[1] == "--icon":
+        icon(json.load(open(sys.argv[2])), sys.argv[3])
+        print("wrote", sys.argv[3])
+        return
     src, out = sys.argv[1], sys.argv[2]
     size = int(sys.argv[sys.argv.index("--size") + 1]) if "--size" in sys.argv else 700
     os.makedirs(out, exist_ok=True)

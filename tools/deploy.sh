@@ -26,7 +26,7 @@ fi
 if [ "$WHAT" = all ] || [ "$WHAT" = --addon ]; then
   sha="$(git -C "$ROOT" rev-parse --short "$REF")"
   echo "== addon $sha -> $HOST:$GM/addons/burrito_radio"
-  git -C "$ROOT" archive "$REF" lua addon.json | "${SSH[@]}" "set -e
+  git -C "$ROOT" archive "$REF" lua materials addon.json | "${SSH[@]}" "set -e
     stage=$GM/../.burrito_radio.stage
     rm -rf \"\$stage\"; mkdir -p \"\$stage\"
     tar -xf - -C \"\$stage\"

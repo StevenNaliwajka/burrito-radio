@@ -112,7 +112,12 @@ Preview without the game (what `docs/preview.png` is):
 
 ## Deploying
 
-    tests/run.sh                         # offline: Lua server side, relay, syntax
+    tests/run.sh                         # offline: everything below (needs Lua 5.1 or Docker)
+    # tests/FEATURES.txt lists every feature and the test that proves it;
+    # tests/test_features.py fails when a feature has no test or a test no feature.
+    LIVE_HOST=10.9.1.13 LIVE_PORT=27015 RCON_PASSWORD=... python3 -m unittest tests/test_live.py
+                                         # on a real server: plays a real YouTube song
+    RCON_PASSWORD=... tools/hotload.py <host> <port>   # reload a running server + its players
     tools/deploy.sh 10.9.1.13            # relay + addon to Petopia (gmod.naliwajka.com)
     tools/deploy.sh 10.9.1.13 --addon    # Lua only (autorefresh picks it up live)
 

@@ -124,10 +124,17 @@ relay    | per-box relay address + key from cfg/burrito_radio.cfg            | t
 
 # ---- shipping it
 ship     | every client file reaches players; server code never does         | test_ship.py    | test_every_client_file_is_sent_to_players_and_loaded
-ship     | the Workshop/addon package is Lua only, titled Burrito            | test_ship.py    | test_addon_json_ships_lua_only
+ship     | the addon package ships Lua + its icon (no relay/tests), titled Burrito | test_ship.py | test_addon_json_ships_the_addon_only
+ship     | every spawn-menu entry has a picture of the real item, sent to players | test_ship.py | test_every_spawn_menu_entry_has_a_picture_of_the_real_item
 ship     | every script parses and is executable                             | test_ship.py    | test_scripts_parse
 ship     | the relay runs boxed in (own user, read-only system, memory cap)  | test_ship.py    | test_relay_service_is_boxed_in
 ship     | reinstalling the relay keeps the owner's settings and key         | test_ship.py    | test_relay_setup_never_overwrites_the_owners_config
 ship     | deploys update files in place (autorefresh reaches players), never restart | test_ship.py | test_deploy_updates_in_place_so_autorefresh_reaches_players
 ship     | the offline preview renders all four views                        | test_ship.py    | test_preview_renders
 sound    | falloff: clearly quieter a few steps away, faint far off, silent past range | test_radio.lua | falloff: real-sound drop close up
+ship     | the server registers the spawn-menu picture for download          | test_radio.lua  | the spawn-menu picture is sent to players
+
+# ---- on a real server (tests/test_live.py; needs LIVE_HOST + RCON_PASSWORD)
+live     | the addon loads, category Burrito, the server reaches the relay   | test_live.py    | test_1_loaded_and_relay_reachable
+live     | a real YouTube link plays through the relay                       | test_live.py    | test_2_youtube_plays_through_the_relay
+live     | pause, resume and skip on a real server                           | test_live.py    | test_3_pause_resume_skip

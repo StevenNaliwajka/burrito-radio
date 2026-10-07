@@ -301,6 +301,13 @@ test("the state sent to clients carries the queue and the public URL", function(
     eq(BRadio.TrackURL(t.base, t.cur.k), "https://www.naliwajka.com/radio/a/yt-p1p1p1p1p1p.mp3")
 end)
 
+test("the spawn-menu picture is sent to players", function()
+    local W = world({ noRadio = true })
+    local found = false
+    for _, r in ipairs(W.resources) do if r == "materials/entities/burrito_radio.png" then found = true end end
+    truthy(found, "resource.AddFile for the icon")
+end)
+
 test("spawn limit: one radio per player unless admin", function()
     local W = world()
     eq(W:run("PlayerSpawnSENT", W.owner, "burrito_radio"), false, "owner already has one")

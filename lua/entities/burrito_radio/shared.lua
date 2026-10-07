@@ -8,6 +8,7 @@ ENT.Category = "Burrito"
 ENT.Purpose = "Plays YouTube links, playlists and the server's music. Press E to use it."
 ENT.Instructions = "Press E to open the radio"
 ENT.Spawnable = true
+ENT.IconOverride = "entities/burrito_radio.png"   -- rendered from the model: tools/preview/render.py --icon
 ENT.AdminOnly = false
 ENT.DisableDuplicator = true
 ENT.RenderGroup = RENDERGROUP_OPAQUE

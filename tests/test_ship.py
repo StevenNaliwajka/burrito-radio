@@ -32,7 +32,35 @@ class ShipTest(unittest.TestCase):
         for f in ("shared.lua", "cl_init.lua"):
             self.assertIn('AddCSLuaFile("%s")' % f, init)
 
-    def test_addon_json_ships_lua_only(self):
+    def test_every_spawn_menu_entry_has_a_picture_of_the_real_item(self):
+        from PIL import Image
+        auto = read("lua", "autorun", "burrito_radio.lua")
+        ents = os.path.join(LUA, "entities")
+        found = 0
+        for cls in sorted(os.listdir(ents)):
+            src = "".join(open(os.path.join(ents, cls, f)).read() for f in os.listdir(os.path.join(ents, cls)))
+            if not re.search(r"ENT\.Spawnable\s*=\s*true", src):
+                continue
+            found += 1
+            with self.subTest(entity=cls):
+                png = os.path.join(ROOT, "materials", "entities", cls + ".png")
+                self.assertTrue(os.path.isfile(png), "no spawn-menu picture for %s (render it: tools/preview/render.py --icon)" % cls)
+                im = Image.open(png)
+                self.assertEqual(im.format, "PNG")
+                self.assertEqual(im.size[0], im.size[1], "square")
+                self.assertGreaterEqual(im.size[0], 128)
+                alpha = im.convert("RGBA").getchannel("A")
+                box = alpha.getbbox()
+                self.assertIsNotNone(box, "the picture is empty")
+                self.assertGreater((box[2] - box[0]) * (box[3] - box[1]), 0.3 * im.size[0] ** 2, "the item fills the frame")
+                colors = im.convert("RGB").getcolors(1 << 20)
+                self.assertGreater(len(colors or []), 200, "a real picture, not a flat placeholder")
+                self.assertIn('IconOverride = "entities/%s.png"' % cls, src)
+                self.assertIn('resource.AddFile("materials/entities/%s.png")' % cls, auto, "players must download it")
+        self.assertGreater(found, 0)
+        self.assertRegex(read("tools", "deploy.sh"), r'archive "\$REF" lua materials addon\.json', "deploy ships materials/")
+
+    def test_addon_json_ships_the_addon_only(self):
         a = json.loads(read("addon.json"))
         self.assertIn("Burrito", a["title"])
         for pat in ("relay/*", "tests/*", "tools/*", "*.py", "*.sh"):

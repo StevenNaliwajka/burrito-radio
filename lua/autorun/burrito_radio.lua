@@ -4,6 +4,8 @@
 local D = "burrito_radio/"
 
 if SERVER then
+    -- the spawn-menu picture: players only get an addon's materials if told to
+    resource.AddFile("materials/entities/burrito_radio.png")
     AddCSLuaFile(D .. "sh_radio.lua")
     AddCSLuaFile(D .. "sh_model.lua")
     AddCSLuaFile(D .. "cl_model.lua")
