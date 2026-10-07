@@ -1,0 +1,26 @@
+[Unit]
+Description=Naliwajka Radio relay (YouTube -> MP3 for the GMod radios)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=radio
+Group=radio
+EnvironmentFile=/etc/naliwajka-radio/relay.env
+Environment=PATH=/opt/naliwajka-radio/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/naliwajka-radio
+ExecStart=/usr/bin/python3 /opt/naliwajka-radio/radio_relay.py
+Restart=always
+RestartSec=3
+# yt-dlp and ffmpeg are the risky bit: keep them in a box
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/naliwajka-radio
+MemoryMax=1G
+CPUQuota=150%
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

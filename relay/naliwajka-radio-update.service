@@ -1,0 +1,6 @@
+[Unit]
+Description=Naliwajka Radio: update yt-dlp (YouTube changes often)
+
+[Service]
+Type=oneshot
+ExecStart=/opt/naliwajka-radio/update-tools.sh

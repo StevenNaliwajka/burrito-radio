@@ -1,0 +1,6 @@
+{
+	"title": "Naliwajka Radio (Crosley Cooper)",
+	"type": "entity",
+	"tags": ["fun", "build"],
+	"ignore": ["relay/*", "tests/*", "tools/*", "docs/*", "*.md", ".git*", "*.py", "*.sh"]
+}
