@@ -464,6 +464,27 @@ class Relay:
         return self.status(key)
 
 
+_OWN = {}
+
+
+def own_address(ip):
+    """Is `ip` one of this host's addresses? (We can bind to it only if it is.)"""
+    if ip in ("127.0.0.1", "::1") or ip.startswith("127."):
+        return True
+    if ip not in _OWN:
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET6 if ":" in ip else socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.bind((ip, 0))
+                _OWN[ip] = True
+            finally:
+                s.close()
+        except OSError:
+            _OWN[ip] = False
+    return _OWN[ip]
+
+
 def last_line(s):
     lines = [ln.strip() for ln in (s or "").splitlines() if ln.strip()]
     if not lines:
@@ -498,16 +519,10 @@ class Handler(BaseHTTPRequestHandler):
     def control_ok(self):
         """Same host (and not proxied), or the shared key.
 
-        Same host is loopback OR the peer having this socket's own address: srcds
-        binds its outgoing sockets to its -ip, so the game server's request to
-        127.0.0.1 arrives from the box's LAN address (10.9.1.13), not 127.0.0.1."""
-        peer = self.client_address[0]
-        try:
-            mine = self.connection.getsockname()[0]
-        except OSError:
-            mine = None
-        local = peer in ("127.0.0.1", "::1") or peer == mine
-        if local and not self.headers.get("X-Forwarded-For"):
+        Same host is any address of this box, not just loopback: srcds binds its
+        outgoing sockets to its -ip, so the game server's request to 127.0.0.1
+        arrives FROM the box's LAN address (10.9.1.13)."""
+        if own_address(self.client_address[0]) and not self.headers.get("X-Forwarded-For"):
             return True
         key = self.relay.cfg.key
         return bool(key) and self.headers.get("X-Radio-Key", "") == key

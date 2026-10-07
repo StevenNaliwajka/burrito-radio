@@ -165,11 +165,13 @@ class RelayTest(unittest.TestCase):
         os.environ["RADIO_LISTEN"] = "0.0.0.0:%d" % port
         self.httpd, _ = rr.serve(rr.Config())
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
-        c = socket.create_connection((ip, port), source_address=(ip, 0))
+        c = socket.create_connection(("127.0.0.1", port), source_address=(ip, 0))
         c.sendall(b"GET /radio/library HTTP/1.0\r\nHost: x\r\n\r\n")
         reply = c.recv(200).decode()
         c.close()
         self.assertIn(" 200 ", reply.splitlines()[0])
+        self.assertTrue(rr.own_address(ip))
+        self.assertFalse(rr.own_address("203.0.113.9"))
 
     def test_bad_keys_and_paths(self):
         self.assertEqual(self.get("/a/../../etc/passwd.mp3")[0], 404)
