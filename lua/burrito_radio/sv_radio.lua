@@ -613,15 +613,19 @@ local rate = {}
 net.Receive(NET.Cmd, function(_, ply)
     local sid = BRadio.SteamID(ply)
     local now = CurTime()
-    local r = rate[sid] or { t = now, n = 0 }
-    if now - r.t > 2 then r.t, r.n = now, 0 end
-    r.n = r.n + 1
-    rate[sid] = r
-    if r.n > 12 then return end
     local len = net.ReadUInt(32)
     if len <= 0 or len > 16384 then return end
     local a = util.JSONToTable(util.Decompress(net.ReadData(len)) or "")
     if type(a) ~= "table" then return end
+    -- sliders (volume, range, seek) send ~10 a second while dragged: their own,
+    -- roomier bucket, so a drag is never cut off and never starves the buttons
+    local bucket = (a.op == "volume" or a.op == "range" or a.op == "seek") and "slide" or "cmd"
+    rate[sid] = rate[sid] or {}
+    local r = rate[sid][bucket] or { t = now, n = 0 }
+    if now - r.t > 2 then r.t, r.n = now, 0 end
+    r.n = r.n + 1
+    rate[sid][bucket] = r
+    if r.n > (bucket == "slide" and 40 or 12) then return end
     local st = S[tostring(a.id or "")]
     local fn = C[tostring(a.op or "")]
     if not st or not fn then return end
@@ -630,8 +634,9 @@ net.Receive(NET.Cmd, function(_, ply)
         return BRadio.Tell(ply, "Walk over to the radio to use it.")
     end
     if a.op == "add" then
-        if r.lastAdd and now - r.lastAdd < 2 then return BRadio.Tell(ply, "Slow down a little.") end
-        r.lastAdd = now
+        local rr = rate[sid]
+        if rr.lastAdd and now - rr.lastAdd < 2 then return BRadio.Tell(ply, "Slow down a little.") end
+        rr.lastAdd = now
     end
     fn(ply, st, a)
 end)

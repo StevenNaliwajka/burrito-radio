@@ -1,16 +1,23 @@
 --[[--------------------------------------------------------------------------
     burrito_radio/cl_audio.lua  -- hearing the radios
 
-    Each radio within earshot gets one BASS channel (sound.PlayURL with "3d"),
-    opened on the relay's MP3 and seeked to the station's clock, so it lines
-    up with everyone else's. The channel sits on the radio: the engine pans
-    it to the side it is on.
+    Each radio within earshot gets one BASS channel (sound.PlayURL), opened on
+    the relay's MP3 and seeked to the station's clock, so it lines up with
+    everyone else's.
 
-    LOUDNESS IS OURS, not BASS's. BASS's own 3D roll-off is pushed out past
-    the station's range (Set3DFadeDistance) and the volume is set every frame:
-        full within NEAR units, then (1 - t)^2 out to the station's range,
-        x0.45 when a wall is between you and the radio (smoothed),
-        x the station's volume (the knob), x your bradio_volume.
+    DIRECTION IS OURS, not BASS's. Its "3d" mode did not audibly place the
+    sound on the radio in game, so the channel is a plain mono stream and
+    every frame we set where it is (SetPan) and how loud (SetVolume):
+        pan       the grille's direction from your view: hard left when the
+                  radio is on your left, centred when it is ahead or behind
+                  (and when you stand on it); x0.85 when it is behind you
+        loudness  full within NEAR units, then (1 - t)^2 out to the range,
+                  x0.45 when a wall is between you and the radio (smoothed),
+                  x the speaker's direction: full in front of the grille,
+                    0.35 behind it (BRadio.Directivity in sh_radio.lua),
+                  x the station's volume (the knob), x your bradio_volume.
+    Both glide (a few frames) so a turn of the head or the volume slider
+    never clicks, and both follow you every frame.
     That is what makes it "music going off in the distance": loud on top of
     it, faint across the map, gone past its range, softer round a corner.
 
@@ -22,7 +29,8 @@
         bradio_enabled  1     hear radios at all
 ----------------------------------------------------------------------------]]
 
-BRadio.CL = BRadio.CL or { Stations = {}, Library = { tracks = {}, playlists = {} }, Muted = {} }
+BRadio.CL = BRadio.CL or { Stations = {}, Library = { tracks = {}, playlists = {} }, Muted = {}, LocalVol = {} }
+BRadio.CL.LocalVol = BRadio.CL.LocalVol or {}
 local CL = BRadio.CL
 local NET = BRadio.Net
 
@@ -49,6 +57,9 @@ net.Receive(NET.State, function()
     t.received = CurTime()
     -- the wire uses short names; BRadio.Position (shared) reads the server's
     t.current, t.startedAt, t.pausedAt = t.cur, t.at, t.pa
+    -- you are dragging this radio's volume: keep what you hear, not an older echo
+    local lv = CL.LocalVol and CL.LocalVol[t.id]
+    if lv and lv.untilT > CurTime() then t.vol = lv.v end
     CL.Stations[t.id] = t
     hook.Run("BRadioState", t.id, t)
 end)
@@ -103,7 +114,7 @@ local function stop(a)
     if a and IsValid(a.ch) then a.ch:Stop() end
 end
 
-local function volumeAt(st, a, dist)
+local function volumeAt(st, a, dist, dir)
     local v
     if dist <= NEAR then
         v = 1
@@ -111,7 +122,7 @@ local function volumeAt(st, a, dist)
         local t = math.Clamp((dist - NEAR) / math.max(1, (st.range or BRadio.DefaultRange) - NEAR), 0, 1)
         v = (1 - t) * (1 - t)
     end
-    return v * (a.occ or 1) * (st.vol or BRadio.DefaultVolume) * cvVolume:GetFloat()
+    return v * (dir or 1) * (a.occ or 1) * (st.vol or BRadio.DefaultVolume) * cvVolume:GetFloat()
 end
 
 local function sync(a, st, force)
@@ -135,10 +146,10 @@ local function sync(a, st, force)
 end
 
 local function start(id, st)
-    local a = { key = st.cur.k, born = CurTime(), occ = 1, nextSync = 0, nextTrace = 0 }
+    local a = { key = st.cur.k, born = CurTime(), occ = 1, nextSync = 0, nextTrace = 0, vol = 0, pan = 0 }
     A[id] = a
     local url = BRadio.TrackURL(st.base, st.cur.k)
-    sound.PlayURL(url, "3d noplay", function(ch, errId, errName)
+    sound.PlayURL(url, "noplay", function(ch, errId, errName)
         if A[id] ~= a then
             if IsValid(ch) then ch:Stop() end
             return
@@ -150,9 +161,8 @@ local function start(id, st)
             return
         end
         a.ch = ch
-        local r = st.range or BRadio.DefaultRange
-        ch:Set3DFadeDistance(r * 2, r * 4)
         ch:SetVolume(0)
+        ch:SetPan(a.pan or 0)
         local s = CL.Stations[id]
         if s then sync(a, s, true) end
     end)
@@ -202,15 +212,29 @@ hook.Add("Think", "bradio_audio", function()
         if st and IsValid(ch) then
             local ent = BRadio.EntityFor(st)
             if IsValid(ent) then
-                local p = ent:WorldSpaceCenter()
-                ch:SetPos(p)
+                -- the sound comes out of the grille, mostly forwards (BRadio.Directivity),
+                -- panned to the side of your view it is on (BRadio.Pan)
+                local sx, sy, sz = BRadio.Model.SpeakerPos()
+                local p = ent:LocalToWorld(Vector(sx, sy, sz))
+                local dist = eye:Distance(p)
+                local f = ent:GetForward()
+                local to = eye - p
+                local len = math.max(to:Length(), 0.001)
+                local dir = BRadio.Directivity(f.x, f.y, f.z, to.x / len, to.y / len, to.z / len, dist)
+                local va = EyeAngles()
+                local r, fw = va:Right(), va:Forward()
+                local pan, behind = BRadio.Pan(r.x, r.y, r.z, fw.x, fw.y, fw.z, -to.x / len, -to.y / len, -to.z / len, dist)
                 if now >= a.nextTrace then
                     a.nextTrace = now + 0.3
                     local tr = util.TraceLine({ start = eye, endpos = p, mask = MASK_SOLID_BRUSHONLY })
                     a.occTarget = tr.Hit and WALL or 1
                 end
+                local k = math.min(1, FrameTime() * 12)
                 a.occ = Lerp(math.min(1, FrameTime() * 4), a.occ, a.occTarget or 1)
-                ch:SetVolume(volumeAt(st, a, eye:Distance(p)))
+                a.vol = Lerp(k, a.vol or 0, volumeAt(st, a, dist, dir) * behind)
+                a.pan = Lerp(k, a.pan or 0, pan)
+                ch:SetVolume(a.vol)
+                ch:SetPan(a.pan)
             end
             if now >= a.nextSync then
                 a.nextSync = now + 2

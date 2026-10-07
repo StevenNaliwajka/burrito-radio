@@ -345,6 +345,12 @@ function M.Bounds(scale)
     return { -HX * scale, -HY * scale, 0 }, { (HX + M.Layout.knob.depth) * scale, HY * scale, (FOOT + H) * scale }
 end
 
+-- where the sound comes from: the middle of the grille, just in front of it (local, scaled)
+function M.SpeakerPos(scale)
+    scale = scale or BRadio.Scale
+    return (HX + 0.05) * scale, (-HY + 1.40) * scale, (FOOT + 1.43) * scale
+end
+
 function M.DisplayRect(scale)
     scale = scale or BRadio.Scale
     local d = M.Layout.display

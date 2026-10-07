@@ -68,7 +68,7 @@ local function setCheck(c, v)
     c.quiet = false
 end
 
-local function slider(parent, text, min, max, dec, fn)
+local function slider(parent, text, min, max, dec, fn, preview)
     local s = vgui.Create("DNumSlider", parent)
     s:SetText(text)
     s:SetMinMax(min, max)
@@ -76,9 +76,21 @@ local function slider(parent, text, min, max, dec, fn)
     s.Label:SetTextColor(INK)
     s.Label:SetFont("BRadioMenu")
     s.TextArea:SetTextColor(INK)
+    -- quick: at most one send per THROTTLE while dragging, and the last value
+    -- always goes (a trailing send), so where you let go is where it stays
+    local THROTTLE = 0.1
     s.OnValueChanged = function(self, v)
         if self.quiet then return end
-        timer.Create("bradio_slider_" .. text, 0.35, 1, function() fn(v) end)
+        if preview then preview(v) end
+        local now = RealTime()
+        local id = "bradio_slider_" .. text
+        if now - (self.lastSend or 0) >= THROTTLE then
+            self.lastSend = now
+            timer.Remove(id)
+            fn(v)
+        else
+            timer.Create(id, THROTTLE, 1, function() self.lastSend = RealTime() fn(v) end)
+        end
     end
     return s
 end
@@ -173,7 +185,13 @@ function Menu.Open(id, canControl, isAdmin, canAdd)
     Menu.bStop:Dock(LEFT) Menu.bStop:DockMargin(6, 0, 0, 0)
     Menu.mute = check(row, "Mute for me", function(v) CL.Muted[Menu.id] = v or nil end)
     Menu.mute:Dock(RIGHT) Menu.mute:DockMargin(10, 8, 4, 0)
-    Menu.vol = slider(row, "Radio volume", 0, 100, 0, function(v) send("volume", { v = v / 100 }) end)
+    -- the knob: you hear it move at once (local preview), everyone else ~0.1 s later
+    Menu.vol = slider(row, "Radio volume", 0, 100, 0, function(v) send("volume", { v = v / 100 }) end, function(v)
+        local st = station()
+        if not st or not Menu.canControl then return end
+        st.vol = v / 100
+        CL.LocalVol[st.id] = { v = v / 100, untilT = CurTime() + 0.8 }
+    end)
     Menu.vol:Dock(FILL) Menu.vol:DockMargin(14, 0, 0, 0)
 
     -- add ---------------------------------------------------------------
@@ -360,7 +378,8 @@ function Menu.BuildSettings(sheet)
         lb:SetText(text)
         return lb
     end
-    Menu.range = slider(p, "Range (how far it carries)", BRadio.MinRange, BRadio.MaxRange, 0, function(v) send("range", { v = v }) end)
+    Menu.range = slider(p, "Range (how far it carries)", BRadio.MinRange, BRadio.MaxRange, 0, function(v) send("range", { v = v }) end,
+        function(v) local st = station() if st and Menu.canControl then st.range = v end end)
     Menu.range:Dock(TOP) Menu.range:DockMargin(8, 8, 8, 0)
     line("About 50 units is a metre. The default, " .. BRadio.DefaultRange .. ", carries across a big room and fades out down the street.")
     Menu.cLoop = check(p, "Loop the queue (finished songs go back to the end)", function(v) send("loop", { on = v }) end)

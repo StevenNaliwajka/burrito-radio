@@ -317,6 +317,45 @@ test("the model builds and its bounds fit the case", function()
     truthy(mx[2] - mn[2] > 12 and mx[2] - mn[2] < 14, "about 13 units wide at scale 2.5")
 end)
 
+test("directivity: loud in front of the grille, soft behind, relaxed up close", function()
+    local D = BRadio.Directivity
+    local front = D(1, 0, 0, 1, 0, 0, 1000)
+    local side = D(1, 0, 0, 0, 1, 0, 1000)
+    local back = D(1, 0, 0, -1, 0, 0, 1000)
+    eq(front, 1, "front")
+    truthy(side > 0.5 and side < 0.65, "side ~0.58: " .. side)
+    eq(back, BRadio.BackGain, "behind")
+    truthy(D(1, 0, 0, -1, 0, 0, 20) == 1, "standing on it: no direction")
+    local mid = D(1, 0, 0, -1, 0, 0, 140)
+    truthy(mid > back and mid < 1, "fades in between: " .. mid)
+    local diag = D(1, 0, 0, 0.7071, 0.7071, 0, 1000)
+    truthy(diag > side and diag < front, "45 degrees between front and side")
+end)
+
+test("dragging the volume: every step lands, and the buttons still work", function()
+    local W = world()
+    W:cmd(W.owner, "add", { id = W.id, q = "song a" }) W:advance(2.1)
+    for i = 1, 20 do W:cmd(W.owner, "volume", { id = W.id, v = i / 20 }) W:advance(0.1) end
+    eq(state(W).volume, 1, "the last value of a 2-second drag")
+    local sent = 0
+    for _, m in ipairs(W.sent) do if m.name == "bradio_state" then sent = sent + 1 end end
+    truthy(sent >= 20, "every step went out to the players (" .. sent .. ")")
+    W:cmd(W.owner, "pause", { id = W.id })
+    eq(state(W).state, "paused", "a button right after the drag is not rate-limited")
+end)
+
+test("pan: left/right from your view, centred up close, softer behind you", function()
+    -- you look along +X, your right is -Y
+    local p, g = BRadio.Pan(0, -1, 0, 1, 0, 0, 0, -1, 0, 500)
+    truthy(p > 0.9 and g == 1, "radio on your right")
+    p = BRadio.Pan(0, -1, 0, 1, 0, 0, 0, 1, 0, 500)
+    truthy(p < -0.9, "on your left")
+    p, g = BRadio.Pan(0, -1, 0, 1, 0, 0, -1, 0, 0, 500)
+    truthy(math.abs(p) < 1e-9 and g < 0.9, "behind you")
+    p = BRadio.Pan(0, -1, 0, 1, 0, 0, 0, -1, 0, 5)
+    eq(p, 0, "standing on it")
+end)
+
 test("per-box settings come from cfg/burrito_radio.cfg", function()
     local W = world({ noRadio = true })
     W.data["cfg/burrito_radio.cfg"] = '// comment\nbradio_relay_url "http://10.9.1.13:8090/radio"\nbradio_relay_key abc123\nsv_cheats 1\n'

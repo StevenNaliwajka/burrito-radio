@@ -73,6 +73,41 @@ function BRadio.SteamID(ply)
     return ply:SteamID64() or ply:SteamID() or tostring(ply:UserID())
 end
 
+--[[ DIRECTIVITY. The radio's one speaker is behind the grille on its front, so
+     it is loud in front of it, softer to the sides and softest behind (a
+     cardioid-ish pattern, like the real thing):
+         front 1.0   side ~0.58   behind BRadio.BackGain (0.35)
+     Up close the pattern relaxes (you hear a radio from any side when you are
+     standing over it), fully directional from DIRECT_FULL units out.
+     f = the radio's forward, d = radio -> listener, both unit vectors; numbers,
+     not Vectors, so it runs in the offline tests. ]]
+BRadio.BackGain = 0.35
+local DIRECT_NEAR, DIRECT_FULL = 30, 250
+function BRadio.Directivity(fx, fy, fz, dx, dy, dz, dist)
+    local c = fx * dx + fy * dy + fz * dz
+    if c > 1 then c = 1 elseif c < -1 then c = -1 end
+    local g = BRadio.BackGain + (1 - BRadio.BackGain) * ((1 + c) / 2) ^ 1.5
+    local w = ((dist or DIRECT_FULL) - DIRECT_NEAR) / (DIRECT_FULL - DIRECT_NEAR)
+    if w < 0 then w = 0 elseif w > 1 then w = 1 end
+    return 1 - (1 - g) * w
+end
+
+--[[ PAN: where the radio is from where you look. r/f = your view's right and
+     forward, d = you -> radio (unit). Returns pan (-1 left .. 1 right) and a
+     gain (0.85 when the radio is behind you: the ear's front/back cue). Right
+     on top of it the pan centres, or turning your head would whip it about. ]]
+function BRadio.Pan(rx, ry, rz, fx, fy, fz, dx, dy, dz, dist)
+    local side = rx * dx + ry * dy + rz * dz
+    local ahead = fx * dx + fy * dy + fz * dz
+    local near = ((dist or 1000) - 10) / 70
+    if near < 0 then near = 0 elseif near > 1 then near = 1 end
+    local pan = side * 0.95 * near
+    if pan > 1 then pan = 1 elseif pan < -1 then pan = -1 end
+    local gain = 1
+    if ahead < 0 then gain = 1 - 0.15 * (-ahead) * near end
+    return pan, gain
+end
+
 -- the audio URL a client fetches
 function BRadio.TrackURL(base, key)
     return (base or ""):gsub("/+$", "") .. "/a/" .. key .. ".mp3"

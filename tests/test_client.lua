@@ -85,6 +85,14 @@ G.Lerp = function(t, a, b) return a + (b - a) * t end
 G.FrameTime = function() return 0.016 end
 G.os.date = function() return "10:08" end
 G.EyePos = function() return shim.Vector(100, 0, 0) end
+-- you look along -X (at the radio's front from +X): your right is +Y... in Source,
+-- right = forward x up, so looking along -X your right is +Y
+local view = { fwd = shim.Vector(-1, 0, 0), right = shim.Vector(0, 1, 0) }
+G.EyeAngles = function()
+    return { Forward = function() return view.fwd end, Right = function() return view.right end }
+end
+G.RealTime = function() return W.now end
+local function settle() for _ = 1, 120 do W:run("Think") end end
 G.util.TraceLine = function() return { Hit = false } end
 G.ScrW, G.ScrH = function() return 1920 end, function() return 1080 end
 G.vgui = { Create = function(class) return mock("vgui:" .. class) end }
@@ -103,6 +111,7 @@ local radio = {
     WorldSpaceCenter = function() return shim.Vector(0, 0, 10) end,
     GetWorldTransformMatrix = function() return {} end,
     LocalToWorld = function(_, v) return v end, LocalToWorldAngles = function(_, a) return a end,
+    GetForward = function() return shim.Vector(1, 0, 0) end,
 }
 G.Entity = function(i) if i == 7 then return radio end return { IsValid = function() return false end } end
 G.ents = { FindByClass = function() return { radio } end }
@@ -112,7 +121,7 @@ G.IsValid = function(x) return type(x) == "table" and x.IsValid ~= nil and x:IsV
 local chan
 G.sound = { PlayURL = function(url, flags, cb)
     calls.playurl = url
-    assert(flags:find("3d", 1, true), "positional")
+    assert(not flags:find("3d", 1, true), "a plain stream: we pan it ourselves")
     chan = { t = 0, vol = -1, state = 0, IsValid = function() return true end }
     function chan:GetTime() return self.t end
     function chan:SetTime(t) self.t = t end
@@ -123,7 +132,8 @@ G.sound = { PlayURL = function(url, flags, cb)
     function chan:Stop() self.state = 0 self.stopped = true end
     function chan:SetVolume(v) self.vol = v end
     function chan:GetVolume() return self.vol end
-    function chan:SetPos(p) self.pos = p end
+    function chan:SetPos(p, d) self.pos = p self.dir = d end
+    function chan:SetPan(p) self.pan = p end
     function chan:Set3DFadeDistance(a, b) self.fade = { a, b } end
     cb(chan)
 end }
@@ -159,7 +169,7 @@ test("the radio draws (idle clock) and lights its materials", function()
     truthy(body["$color"] and body["$color"].x > 0.1, "lit")
 end)
 
-test("a playing station opens a 3D channel at the station's clock", function()
+test("a playing station opens a channel at the station's clock", function()
     receiveState({ id = "r1", ent = 7, state = "playing", cur = { k = "yt-dQw4w9WgXcQ", t = "Never Gonna Give You Up", d = 213, b = "Burrito" },
         at = CurTime() - 42, vol = 0.7, range = 3000, base = "https://www.naliwajka.com/radio", q = {} })
     timer.Create = timer.Create  -- (manage runs on a timer; drive it)
@@ -167,14 +177,73 @@ test("a playing station opens a 3D channel at the station's clock", function()
     truthy(calls.playurl == "https://www.naliwajka.com/radio/a/yt-dQw4w9WgXcQ.mp3", "url " .. tostring(calls.playurl))
     truthy(math.abs(chan.t - 42) < 0.5, "seeked to 42s, got " .. chan.t)
     truthy(chan.state == 1, "playing")
-    W:run("Think")
+    settle()
     truthy(chan.vol > 0.3 and chan.vol < 0.8, "volume near it: " .. chan.vol)
-    truthy(chan.fade[1] >= 6000, "BASS roll-off pushed out past the range")
+end)
+
+test("the speaker is directional: same distance, louder in front than behind", function()
+    G.EyePos = function() return shim.Vector(600, 0, 10) end
+    settle()
+    local front = chan.vol
+    truthy(math.abs(chan.pan) < 0.2, "facing it: centred (" .. chan.pan .. ")")
+    G.EyePos = function() return shim.Vector(-600, 0, 10) end
+    view.fwd, view.right = shim.Vector(1, 0, 0), shim.Vector(0, -1, 0)
+    settle()
+    local back = chan.vol
+    view.fwd, view.right = shim.Vector(-1, 0, 0), shim.Vector(0, 1, 0)
+    truthy(front > 0 and back > 0, "both audible")
+    truthy(back / front < 0.4, string.format("behind %.3f vs front %.3f", back, front))
+    G.EyePos = function() return shim.Vector(100, 0, 0) end
+end)
+
+test("pan: the radio on your right is in your right ear, and follows your head", function()
+    G.EyePos = function() return shim.Vector(600, 0, 10) end
+    view.fwd, view.right = shim.Vector(0, 1, 0), shim.Vector(1, 0, 0)    -- facing +Y: radio (at -X) on your LEFT
+    settle()
+    truthy(chan.pan < -0.8, "left: " .. chan.pan)
+    view.fwd, view.right = shim.Vector(0, -1, 0), shim.Vector(-1, 0, 0)  -- turn round: now on your RIGHT
+    settle()
+    truthy(chan.pan > 0.8, "right: " .. chan.pan)
+    view.fwd, view.right = shim.Vector(-1, 0, 0), shim.Vector(0, 1, 0)  -- face it: centred
+    settle()
+    truthy(math.abs(chan.pan) < 0.1, "ahead: " .. chan.pan)
+    local ahead = chan.vol
+    view.fwd, view.right = shim.Vector(1, 0, 0), shim.Vector(0, -1, 0)  -- back to it: centred, a little softer
+    settle()
+    truthy(math.abs(chan.pan) < 0.1 and chan.vol < ahead, "behind you")
+    view.fwd, view.right = shim.Vector(-1, 0, 0), shim.Vector(0, 1, 0)
+    G.EyePos = function() return shim.Vector(100, 0, 0) end
+    settle()
+end)
+
+test("the volume slider is heard at once, louder and softer, still directional", function()
+    BRadio.Menu.Open("r1", true, true, true)
+    local before = chan.vol
+    BRadio.CL.Stations.r1.vol = 0.2
+    settle()
+    local low = chan.vol
+    BRadio.CL.Stations.r1.vol = 1.0
+    for _ = 1, 12 do W:run("Think") end    -- ~0.2 s of frames
+    truthy(chan.vol > low * 3, string.format("rose quickly: %.3f -> %.3f", low, chan.vol))
+    settle()
+    local front = chan.vol
+    G.EyePos = function() return shim.Vector(-100, 0, 10) end   -- same distance, behind the radio
+    settle()
+    truthy(chan.vol < front * 0.9, "the knob does not undo the direction")
+    -- an older value echoed by the server mid-drag does not yank it back
+    BRadio.CL.LocalVol.r1 = { v = 0.9, untilT = CurTime() + 1 }
+    local data = shim.encode({ id = "r1", ent = 7, state = "playing", cur = { k = "yt-dQw4w9WgXcQ", t = "x", d = 213 },
+        at = CurTime() - 42, vol = 0.3, range = 3000, base = "https://www.naliwajka.com/radio", q = {} })
+    W.reading, W.ri = { data }, 1
+    W.net["bradio_state"]()
+    truthy(BRadio.CL.Stations.r1.vol == 0.9, "kept the dragged value")
+    G.EyePos = function() return shim.Vector(100, 0, 0) end
+    settle()
 end)
 
 test("volume fades with distance and stops past the range", function()
     G.EyePos = function() return shim.Vector(2000, 0, 0) end
-    W:run("Think")
+    settle()
     local far = chan.vol
     truthy(far > 0 and far < 0.1, "faint at 2000: " .. far)
     G.EyePos = function() return shim.Vector(5000, 0, 0) end
