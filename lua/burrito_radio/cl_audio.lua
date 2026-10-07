@@ -37,7 +37,6 @@ local NET = BRadio.Net
 local cvVolume = CreateClientConVar("bradio_volume", "0.8", true, false, "Radio: your volume for every radio (0-1)", 0, 1)
 local cvEnabled = CreateClientConVar("bradio_enabled", "1", true, false, "Radio: hear radios at all (1/0)")
 
-local NEAR = 140
 local MAX_CHANNELS = 4
 local WALL = 0.45
 
@@ -115,13 +114,7 @@ local function stop(a)
 end
 
 local function volumeAt(st, a, dist, dir)
-    local v
-    if dist <= NEAR then
-        v = 1
-    else
-        local t = math.Clamp((dist - NEAR) / math.max(1, (st.range or BRadio.DefaultRange) - NEAR), 0, 1)
-        v = (1 - t) * (1 - t)
-    end
+    local v = BRadio.Falloff(dist, st.range or BRadio.DefaultRange)
     return v * (dir or 1) * (a.occ or 1) * (st.vol or BRadio.DefaultVolume) * cvVolume:GetFloat()
 end
 

@@ -702,8 +702,8 @@ end
 concommand.Add("bradio_place", function(ply, _, args)
     if not BRadio.IsAdmin(ply) or not IsValid(ply) then return end
     local tr = ply:GetEyeTrace()
-    local ent = BRadio.SpawnRadio(tr.HitPos + tr.HitNormal * 2, Angle(0, ply:EyeAngles().y + 180, 0), nil,
-        { owner = nil, permanent = args[1] ~= "0" })
+    -- created unpinned, then pinned: SetPinned gives it the stable p<n> id the map file keys on
+    local ent = BRadio.SpawnRadio(tr.HitPos + tr.HitNormal * 2, Angle(0, ply:EyeAngles().y + 180, 0), nil, {})
     if args[1] ~= "0" then BRadio.SetPinned(BRadio.StationOf(ent), true) end
     BRadio.Tell(ply, args[1] ~= "0" and "Placed a pinned radio. Press E on it to load music." or "Placed a radio.")
 end)

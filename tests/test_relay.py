@@ -28,6 +28,10 @@ if "-J" in a:
             {"id": "ddddddddddd", "title": "Two", "duration": 200}]}))
     elif target.startswith("ytsearch1:"):
         print(json.dumps({"_type": "playlist", "entries": [{"id": "eeeeeeeeeee", "title": "Found It", "duration": 150}]}))
+    elif "v=lllllllllll" in target:
+        print(json.dumps({"id": "lllllllllll", "title": "Live Now", "is_live": True, "live_status": "is_live"}))
+    elif "v=ggggggggggg" in target:
+        print(json.dumps({"id": "ggggggggggg", "title": "Ten Hour Loop", "duration": 36000}))
     elif "v=zzzzzzzzzzz" in target:
         sys.stderr.write("ERROR: [youtube] zzzzzzzzzzz: Video unavailable\n"); sys.exit(1)
     else:
@@ -35,6 +39,11 @@ if "-J" in a:
         print(json.dumps({"id": vid, "title": "Video " + vid, "duration": 213}))
     sys.exit(0)
 out = a[a.index("-o") + 1].replace("%(ext)s", "webm")
+cnt = os.environ.get("FAKE_COUNT")
+if cnt:
+    open(cnt, "a").write(target + "\n")
+if os.environ.get("FAKE_SLOW"):
+    import time; time.sleep(float(os.environ["FAKE_SLOW"]))
 if "v=fffffffffff" in target:
     sys.stderr.write("ERROR: [youtube] fffffffffff: Sign in to confirm your age\n"); sys.exit(1)
 open(out, "wb").write(b"FAKEAUDIO" * 1000)
@@ -43,7 +52,13 @@ print(out)
 FAKE_FFMPEG = r'''#!/usr/bin/env python3
 import sys, shutil
 a = sys.argv[1:]
-shutil.copy(a[a.index("-i") + 1], a[-1])
+src = a[a.index("-i") + 1]
+if src.startswith("http"):
+    if "missing" in src:
+        sys.stderr.write("Server returned 404 Not Found\n"); sys.exit(1)
+    open(a[-1], "wb").write(b"URLAUDIO" * 500)
+else:
+    shutil.copy(src, a[-1])
 '''
 FAKE_FFPROBE = "#!/bin/sh\necho 213.4\n"
 
@@ -233,6 +248,102 @@ class RelayTest(unittest.TestCase):
         r2 = rr.Relay(self.relay.cfg)
         self.assertEqual(r2.track("yt-dQw4w9WgXcQ")["title"], "Video dQw4w9WgXcQ")
         r2.pool.shutdown()
+
+
+    # ------------------------------------------------------------ more features
+    def test_direct_audio_links(self):
+        url = "https://cdn.example.com/music/Night%20Drive.mp3"
+        code, r = self.json("/resolve?q=" + urllib.request.quote(url, safe=""))
+        self.assertEqual(code, 200)
+        t = r["tracks"][0]
+        self.assertTrue(t["key"].startswith("url-"))
+        self.assertEqual(t["title"], "Night Drive.mp3")
+        self.json("/fetch?key=" + t["key"])
+        self.assertEqual(self.wait_ready(t["key"])["state"], "ready")
+        code, body, _ = self.get("/a/%s.mp3" % t["key"])
+        self.assertEqual((code, len(body)), (200, 4000))
+        code, r = self.json("/resolve?q=" + urllib.request.quote("https://cdn.example.com/missing.mp3", safe=""))
+        k = r["tracks"][0]["key"]
+        self.json("/fetch?key=" + k)
+        s = self.wait_ready(k)
+        self.assertEqual(s["state"], "error")
+        self.assertIn("404", s["error"])
+
+    def test_library_key_resolves_to_itself(self):
+        lib = self.relay.cfg.library
+        with open(os.path.join(lib, "Song.mp3"), "wb") as f:
+            f.write(b"x" * 100)
+        code, r = self.json("/library/rescan")
+        key = r["tracks"][0]["key"]
+        code, r = self.json("/resolve?q=" + key)
+        self.assertEqual((code, r["tracks"][0]["key"]), (200, key))
+        self.assertEqual(self.json("/resolve?q=lib-doesnotexist00")[0], 400)
+
+    def test_live_and_too_long_are_refused_with_a_reason(self):
+        code, r = self.json("/resolve?q=" + urllib.request.quote("https://youtu.be/lllllllllll"))
+        self.assertEqual(code, 400)
+        self.assertIn("live", r["error"])
+        code, r = self.json("/resolve?q=" + urllib.request.quote("https://youtu.be/ggggggggggg"))
+        self.assertEqual(code, 400)
+        self.assertIn("too long", r["error"])
+
+    def test_empty_query_is_an_error(self):
+        code, r = self.json("/resolve?q=")
+        self.assertEqual(code, 400)
+
+    def test_a_failed_download_waits_a_minute_before_retrying(self):
+        count = os.path.join(self.tmp.name, "count")
+        os.environ["FAKE_COUNT"] = count
+        try:
+            self.json("/resolve?q=" + urllib.request.quote("https://youtu.be/fffffffffff"))
+            self.json("/fetch?key=yt-fffffffffff")
+            self.wait_ready("yt-fffffffffff")
+            for _ in range(3):
+                code, s = self.json("/fetch?key=yt-fffffffffff")
+                self.assertEqual(s["state"], "error")
+            time.sleep(0.3)
+            self.assertEqual(len(open(count).read().splitlines()), 1, "no retry inside the minute")
+            self.relay.errors["yt-fffffffffff"] = (time.time() - 61, "old")
+            self.json("/fetch?key=yt-fffffffffff")
+            self.wait_ready("yt-fffffffffff")
+            self.assertEqual(len(open(count).read().splitlines()), 2, "retried after it")
+        finally:
+            os.environ.pop("FAKE_COUNT", None)
+
+    def test_many_listeners_asking_at_once_cause_one_download(self):
+        count = os.path.join(self.tmp.name, "count")
+        os.environ["FAKE_COUNT"], os.environ["FAKE_SLOW"] = count, "0.5"
+        try:
+            self.json("/resolve?q=" + urllib.request.quote("https://youtu.be/dQw4w9WgXcQ"))
+            threads = [threading.Thread(target=self.json, args=("/fetch?key=yt-dQw4w9WgXcQ",)) for _ in range(8)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            self.assertEqual(self.wait_ready("yt-dQw4w9WgXcQ")["state"], "ready")
+            self.assertEqual(len(open(count).read().splitlines()), 1)
+        finally:
+            os.environ.pop("FAKE_COUNT", None)
+            os.environ.pop("FAKE_SLOW", None)
+
+    def test_head_and_headers_for_players(self):
+        self.json("/resolve?q=" + urllib.request.quote("https://youtu.be/dQw4w9WgXcQ"))
+        self.json("/fetch?key=yt-dQw4w9WgXcQ")
+        self.wait_ready("yt-dQw4w9WgXcQ")
+        req = urllib.request.Request(self.base + "/a/yt-dQw4w9WgXcQ.mp3", method="HEAD")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(r.headers["Accept-Ranges"], "bytes")
+            self.assertEqual(r.headers["Content-Length"], "9000")
+            self.assertIn("max-age", r.headers["Cache-Control"])
+            self.assertEqual(r.read(), b"")
+
+    def test_paths_outside_the_prefix_and_unknown_ones(self):
+        port = self.httpd.server_address[1]
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen("http://127.0.0.1:%d/other/health" % port, timeout=5)
+        self.assertEqual(e.exception.code, 404)
+        self.assertEqual(self.json("/nope")[0], 404)
 
 
 class YoutubeIdsTest(unittest.TestCase):

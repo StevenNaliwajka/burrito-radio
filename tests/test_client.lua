@@ -11,6 +11,9 @@ local function test(name, fn)
     if ok then pass = pass + 1 io.write("  ok   ", name, "\n")
     else fail = fail + 1 io.write("  FAIL ", name, "\n       ", tostring(err), "\n") end
 end
+local function eq(a, b, what)
+    if a ~= b then error((what or "value") .. ": expected " .. tostring(b) .. ", got " .. tostring(a), 2) end
+end
 local function truthy(v, what) if not v then error((what or "condition") .. " was false", 2) end end
 
 -- a value that answers every call and index with another such value
@@ -76,8 +79,10 @@ G.MATERIAL_TRIANGLES, G.RT_SIZE_LITERAL, G.MATERIAL_RT_DEPTH_NONE, G.IMAGE_FORMA
 G.TEXT_ALIGN_CENTER, G.TEXT_ALIGN_LEFT = 1, 0
 G.GMOD_CHANNEL_PLAYING, G.GMOD_CHANNEL_PAUSED, G.GMOD_CHANNEL_STOPPED = 1, 2, 0
 G.MASK_SOLID_BRUSHONLY = 1
+local cv = {}
 G.CreateClientConVar = function(name, def)
-    return { GetBool = function() return def ~= "0" end, GetFloat = function() return tonumber(def) or 0 end }
+    if cv[name] == nil then cv[name] = def end
+    return { GetBool = function() return tostring(cv[name]) ~= "0" end, GetFloat = function() return tonumber(cv[name]) or 0 end }
 end
 G.concommand = { Add = function() end }
 G.chat = mock("chat")
@@ -93,9 +98,28 @@ G.EyeAngles = function()
 end
 G.RealTime = function() return W.now end
 local function settle() for _ = 1, 120 do W:run("Think") end end
-G.util.TraceLine = function() return { Hit = false } end
+local wall = false
+G.util.TraceLine = function() return { Hit = wall } end
 G.ScrW, G.ScrH = function() return 1920 end, function() return 1080 end
-G.vgui = { Create = function(class) return mock("vgui:" .. class) end }
+-- panels remember what they were Set*, so the menu's greyed-out buttons can be checked
+local function panel(class)
+    local p = {}
+    return setmetatable(p, { __index = function(_, k)
+        -- like a real panel: a field nobody set (self.quiet, self.lastSend) is nil
+        if type(k) == "string" and k:sub(1, 1):match("%l") then return nil end
+        if type(k) == "string" and k:sub(1, 3) == "Set" then
+            return function(self, v) rawset(self, "_" .. k:sub(4), v) end
+        elseif type(k) == "string" and k:sub(1, 3) == "Get" and k ~= "GetSelected" and k ~= "GetValue" then
+            return function(self)
+                local v = rawget(self, "_" .. k:sub(4))
+                if v == nil then return mock("vgui:" .. class .. "." .. k .. "()") end
+                return v
+            end
+        end
+        return mock("vgui:" .. class .. "." .. tostring(k))
+    end })
+end
+G.vgui = { Create = function(class) return panel(class) end }
 G.DermaMenu = function() return mock("DermaMenu") end
 G.Derma_Query = function() end
 G.SetClipboardText = function() end
@@ -113,14 +137,28 @@ local radio = {
     LocalToWorld = function(_, v) return v end, LocalToWorldAngles = function(_, a) return a end,
     GetForward = function() return shim.Vector(1, 0, 0) end,
 }
-G.Entity = function(i) if i == 7 then return radio end return { IsValid = function() return false end } end
-G.ents = { FindByClass = function() return { radio } end }
+local radios = { [7] = radio }
+local function makeRadio(idx, sid, pos)
+    local r = {}
+    for k, v in pairs(radio) do r[k] = v end
+    r.GetStationId = function() return sid end
+    r.GetPos = function() return pos end
+    r.WorldSpaceCenter = function() return pos end
+    r.LocalToWorld = function(_, v) return pos + v end
+    radios[idx] = r
+    return r
+end
+G.Entity = function(i) return radios[i] or { IsValid = function() return false end } end
+G.ents = { FindByClass = function() local out = {} for _, r in pairs(radios) do out[#out + 1] = r end return out end }
 G.IsValid = function(x) return type(x) == "table" and x.IsValid ~= nil and x:IsValid() end
 
 -- sound.PlayURL hands back a channel that records what it was told
 local chan
+local chans, failURL = {}, nil
 G.sound = { PlayURL = function(url, flags, cb)
     calls.playurl = url
+    calls.opens = (calls.opens or 0) + 1
+    if failURL and url:find(failURL, 1, true) then return cb(nil, 2, "BASS_ERROR_FILEOPEN") end
     assert(not flags:find("3d", 1, true), "a plain stream: we pan it ourselves")
     chan = { t = 0, vol = -1, state = 0, IsValid = function() return true end }
     function chan:GetTime() return self.t end
@@ -135,6 +173,8 @@ G.sound = { PlayURL = function(url, flags, cb)
     function chan:SetPos(p, d) self.pos = p self.dir = d end
     function chan:SetPan(p) self.pan = p end
     function chan:Set3DFadeDistance(a, b) self.fade = { a, b } end
+    chans[#chans + 1] = chan
+    chan.url = url
     cb(chan)
 end }
 
@@ -281,6 +321,199 @@ test("a station going away stops its channel", function()
     W.net["bradio_gone"]()
     W:advance(0.3)
     truthy(BRadio.CL.Stations.r1 == nil)
+end)
+
+-- ------------------------------------------------------------------ playback states
+local function playing(extra)
+    local t = { id = "r1", ent = 7, state = "playing", cur = { k = "yt-dQw4w9WgXcQ", t = "Song", d = 213, b = "x" },
+        at = CurTime() - 42, vol = 0.7, range = 3000, base = "https://www.naliwajka.com/radio", q = {} }
+    for k, v in pairs(extra or {}) do t[k] = v end
+    receiveState(t)
+end
+local function openOn(id)
+    for _, c in ipairs(chans) do if not c.stopped and c.url:find(id, 1, true) then return c end end
+end
+
+test("pause pauses the channel where it is; resume plays from the station's clock", function()
+    playing() W:advance(0.3) settle()
+    local c = openOn("dQw4w9WgXcQ")
+    truthy(c and c.state == 1, "playing")
+    playing({ state = "paused", pa = 50 }) settle()
+    eq(c.state, 2, "paused")
+    playing({ state = "playing", at = CurTime() - 50 }) settle()
+    eq(c.state, 1, "playing again")
+    truthy(math.abs(c.t - 50) < 1.5, "from 50s (" .. c.t .. ")")
+end)
+
+test("a seek by the owner moves every listener's channel", function()
+    local c = openOn("dQw4w9WgXcQ")
+    playing({ at = CurTime() - 150 }) settle()
+    truthy(math.abs(c.t - 150) < 1.5, "jumped to 150 (" .. c.t .. ")")
+end)
+
+test("a new song closes the old channel and opens the new one at 0", function()
+    local old = openOn("dQw4w9WgXcQ")
+    playing({ cur = { k = "yt-NEWSONG0001", t = "Next", d = 100, b = "x" }, at = CurTime() + 1.5 })
+    W:advance(0.3)
+    truthy(old.stopped, "old channel closed")
+    local c = openOn("NEWSONG0001")
+    truthy(c, "new channel opened")
+    truthy(c.state ~= 1, "held until the announced start")
+    W:advance(2) settle()
+    eq(c.state, 1, "starts on time")
+    truthy(c.t < 1, "from the top")
+end)
+
+test("a wall between you and the radio muffles it", function()
+    local c = openOn("NEWSONG0001")
+    settle()
+    local open = c.vol
+    wall = true
+    W:advance(0.4) settle()
+    truthy(c.vol < open * 0.6, string.format("behind a wall %.3f vs %.3f", c.vol, open))
+    wall = false
+    W:advance(0.4) settle()
+    truthy(c.vol > open * 0.9, "clear again")
+end)
+
+test("mute for me closes it for you only; unmute brings it back", function()
+    local c = openOn("NEWSONG0001")
+    BRadio.CL.Muted.r1 = true
+    W:advance(0.3)
+    truthy(c.stopped, "muted: channel closed (no download for you)")
+    BRadio.CL.Muted.r1 = nil
+    W:advance(0.3) settle()
+    truthy(openOn("NEWSONG0001"), "back")
+end)
+
+test("bradio_enabled 0 turns every radio off for you; bradio_volume scales them", function()
+    settle()
+    local c = openOn("NEWSONG0001")
+    local full = c.vol
+    cv.bradio_volume = "0.4"
+    settle()
+    truthy(math.abs(c.vol - full * 0.5) < 0.02, string.format("0.4/0.8 of it: %.3f vs %.3f", c.vol, full))
+    cv.bradio_volume = "0.8"
+    cv.bradio_enabled = "0"
+    W:advance(0.3)
+    truthy(c.stopped, "off")
+    cv.bradio_enabled = "1"
+    W:advance(0.3) settle()
+    truthy(openOn("NEWSONG0001"), "on again")
+end)
+
+test("only the 4 nearest radios play at once", function()
+    for i = 1, 5 do
+        local sid = "far" .. i
+        makeRadio(20 + i, sid, shim.Vector(0, 300 * i, 0))
+        receiveState({ id = sid, ent = 20 + i, state = "playing", cur = { k = "yt-FAR000000" .. i, t = "F", d = 213, b = "x" },
+            at = CurTime() - 5, vol = 0.7, range = 3000, base = "https://www.naliwajka.com/radio", q = {} })
+    end
+    W:advance(0.3)
+    local open = 0
+    for _, c in ipairs(chans) do if not c.stopped then open = open + 1 end end
+    eq(open, 4, "four channels")
+    truthy(openOn("NEWSONG0001"), "the nearest (r1) is one of them")
+    truthy(not openOn("FAR0000005"), "the farthest is not")
+    for i = 1, 5 do
+        W.reading, W.ri = { "far" .. i }, 1
+        W.net["bradio_gone"]()
+        radios[20 + i] = nil
+    end
+    W:advance(0.3)
+end)
+
+test("a stream that fails to open is retried, not hammered", function()
+    failURL = "BROKEN00001"
+    local before = calls.opens or 0
+    playing({ cur = { k = "yt-BROKEN00001", t = "Broken", d = 100, b = "x" }, at = CurTime() - 1 })
+    W:advance(5)
+    eq((calls.opens or 0) - before, 1, "one try in the first 5 s")
+    W:advance(15)
+    truthy((calls.opens or 0) - before >= 2, "retried after ~15 s")
+    failURL = nil
+    W:advance(16)
+    truthy(openOn("BROKEN00001"), "plays once the file is there")
+end)
+
+-- ------------------------------------------------------------------ the menu
+local function sentOps()
+    local ops = {}
+    for _, m in ipairs(W.sent) do
+        if m.name == "bradio_cmd" and m.to == "server" then ops[#ops + 1] = shim.decode(m.fields[2]) end
+    end
+    W.sent = {}
+    return ops
+end
+
+test("menu buttons send the right commands", function()
+    playing({ q = { { k = "yt-b", t = "Next", d = 90, b = "me", s = "7656me" } } })
+    local M = BRadio.Menu
+    M.Open("r1", true, true, true)
+    W.sent = {}
+    M.entry.GetValue = function() return "  https://youtu.be/dQw4w9WgXcQ  " end
+    M.bAdd.DoClick()
+    M.bNext.DoClick()
+    M.bSkip.DoClick()
+    M.bPlay.DoClick()
+    M.bStop.DoClick()
+    M.bClear.DoClick()
+    local ops = sentOps()
+    local names = {}
+    for i, o in ipairs(ops) do names[i] = o.op eq(o.id, "r1", "addressed to the radio") end
+    eq(table.concat(names, ","), "add,add,skip,pause,stop,clear")
+    eq(ops[1].q, "https://youtu.be/dQw4w9WgXcQ", "trimmed link")
+    eq(ops[2].next, true, "Play next")
+    M.queue.GetSelected = function() return { { idx = 1, key = "yt-b" } } end
+    M.bRemove.DoClick()
+    M.bTop.DoClick()
+    ops = sentOps()
+    eq(ops[1].op .. ":" .. ops[1].i .. ":" .. ops[1].k, "remove:1:yt-b")
+    eq(ops[2].op .. ":" .. ops[2].to, "move:1")
+    M.lib.GetSelected = function() return { { key = "lib-1" } } end
+    M.bLibAdd.DoClick()
+    M.bLibAll.DoClick()
+    ops = sentOps()
+    eq(ops[1].op .. ":" .. ops[1].keys[1], "libadd:lib-1")
+    eq(ops[2].all, true)
+end)
+
+test("the volume slider sends quickly while dragging and always sends where you let go", function()
+    local M = BRadio.Menu
+    W.sent = {}
+    for v = 10, 60, 5 do M.vol.OnValueChanged(M.vol, v) W:advance(0.03) end
+    local during = #sentOps()
+    truthy(during >= 2 and during <= 5, "throttled to ~10/s while dragging (" .. during .. ")")
+    W:advance(0.2)
+    local ops = sentOps()
+    truthy(#ops == 1 and math.abs(ops[1].v - 0.6) < 1e-6, "the final 60% went out (" .. #ops .. ")")
+    eq(BRadio.CL.Stations.r1.vol, 0.6, "and you already hear it")
+end)
+
+test("a guest sees control buttons greyed out; an admin does not", function()
+    local M = BRadio.Menu
+    M.Open("r1", false, false, true)
+    M.Refresh()
+    eq(M.bPlay:GetDisabled(), true, "pause")
+    eq(M.bStop:GetDisabled(), true, "stop")
+    eq(M.bNext:GetDisabled(), true, "play next")
+    eq(M.bClear:GetDisabled(), true, "clear")
+    eq(M.bAdd:GetDisabled(), false, "add is open to guests")
+    eq(M.bSkip:GetText(), "Vote skip")
+    eq(M.bSaveNow:GetVisible(), false, "no library saving")
+    M.Open("r1", true, true, true)
+    M.Refresh()
+    eq(M.bPlay:GetDisabled(), false)
+    eq(M.bSkip:GetText(), "Skip")
+    eq(M.bSaveNow:GetVisible(), true)
+end)
+
+test("a guest's own song shows Skip (they may skip what they added)", function()
+    playing({ cur = { k = "yt-mine", t = "Mine", d = 100, b = "me", s = "7656me" } })
+    local M = BRadio.Menu
+    M.Open("r1", false, false, true)
+    M.Refresh()
+    eq(M.bSkip:GetText(), "Skip")
 end)
 
 io.write(string.format("\n%d passed, %d failed\n", pass, fail))

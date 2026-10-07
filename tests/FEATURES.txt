@@ -1,0 +1,133 @@
+# Every feature Burrito Radio needs, and the test that proves it.
+#
+#   <area> | <feature> | <test file> | <test name, or a unique part of it>
+#
+# tests/test_features.py fails if a line names a test that does not exist, if a
+# test file has a test no feature claims (add the feature here), or if an area
+# has no features at all. Add a feature here BEFORE (or with) its test.
+
+# ---- playing music (what players ask for)
+play     | paste a YouTube video link and it plays                           | test_radio.lua  | adding a link plays it after the relay has it
+play     | paste a YouTube playlist link: every song queued                  | test_radio.lua  | a playlist link queues every song
+play     | type song words: the first YouTube hit                            | test_relay.py   | test_search_words
+play     | YouTube link shapes: youtu.be, shorts, music, mobile, &t=, mixes   | test_relay.py   | test_video_link_variants
+play     | YouTube link shapes are parsed strictly                           | test_relay.py   | test_parse
+play     | a direct .mp3/.ogg link plays                                     | test_relay.py   | test_direct_audio_links
+play     | songs play in order, the server clock moves the queue on          | test_radio.lua  | songs play in order and the clock moves the queue on
+play     | the next songs download ahead so switching is instant             | test_radio.lua  | a playlist link queues every song; the next ones are prefetched
+play     | live streams / over-long videos refused with a reason             | test_relay.py   | test_live_and_too_long_are_refused_with_a_reason
+play     | private/deleted/over-long playlist entries skipped                | test_relay.py   | test_playlist_skips_deleted_and_too_long
+play     | an empty request is an error, not a crash                         | test_relay.py   | test_empty_query_is_an_error
+
+# ---- the queue (menu: add / remove / skip ...)
+queue    | Play next: controllers put a song right after this one            | test_radio.lua  | play next: controllers jump the queue
+queue    | remove your own songs; owner/admins remove any                    | test_radio.lua  | remove: your own songs, or any if you run the radio
+queue    | skip: owner/admins/the song's adder skip at once                  | test_radio.lua  | the owner and admins skip at once
+queue    | skip: everyone else votes; half the listeners skip it             | test_radio.lua  | a guest cannot skip someone else's song directly
+queue    | move a song to the top                                            | test_radio.lua  | move to top (controllers only)
+queue    | clear the queue / stop the radio                                  | test_radio.lua  | clear empties the queue but the song plays on
+queue    | pause and resume from the same place                              | test_radio.lua  | pause holds the position and resume carries on from it
+queue    | seek (click the progress bar)                                     | test_radio.lua  | seek moves everyone to the same place
+queue    | loop the queue                                                    | test_radio.lua  | loop puts finished songs back at the end
+queue    | shuffle                                                           | test_radio.lua  | shuffle reorders the queue
+queue    | radio volume and range, clamped, controller-only                  | test_radio.lua  | range and volume are clamped and controller-only
+queue    | volume slider drags apply step by step, buttons not rate-limited  | test_radio.lua  | dragging the volume: every step lands
+queue    | a broken song is skipped and its adder told why                   | test_radio.lua  | a song that fails to download is skipped
+queue    | six broken songs in a row stop the radio                          | test_radio.lua  | six broken songs in a row stop the radio
+queue    | a download that never finishes is given up                        | test_radio.lua  | a download that never finishes gives up after 15 minutes
+
+# ---- the server owner's music
+library  | autoplay from the library when the queue runs out                 | test_radio.lua  | autoplay picks from the owner's library when the queue is empty
+library  | autoplay can be turned off                                        | test_radio.lua  | autoplay off: an empty queue stays quiet
+library  | autoplay does not repeat until the library has been played        | test_radio.lua  | autoplay does not repeat a library song
+library  | queue library songs (selected or all); admins remove and rescan   | test_radio.lua  | library: queue selected or all of it
+library  | admins save the playing song / import a playlist into the library | test_radio.lua  | library: save the playing song, import a playlist
+library  | files dropped into library/ appear, deleted ones leave            | test_relay.py   | test_library_files_and_saving
+library  | a library key resolves to itself                                  | test_relay.py   | test_library_key_resolves_to_itself
+library  | saved playlists: admins save, anyone loads                        | test_radio.lua  | saved playlists: an admin saves the queue, anyone loads it
+library  | saved playlists: only admins delete                               | test_radio.lua  | saved playlists: only admins delete
+
+# ---- who may do what
+perms    | bradio_add 1: only owner/admins queue                             | test_radio.lua  | bradio_add 1 keeps strangers from queueing
+perms    | one player's share of the queue is capped                         | test_radio.lua  | a guest's share of the queue is capped
+perms    | the queue has a hard cap                                          | test_radio.lua  | the queue has a hard cap, even for admins
+perms    | you must be near the radio (admins anywhere)                      | test_radio.lua  | players far away (not admins) cannot work the radio
+perms    | spawn limit per player                                            | test_radio.lua  | spawn limit: one radio per player unless admin
+perms    | bradio_spawn 1: admins only                                       | test_radio.lua  | bradio_spawn 1: only admins spawn radios
+perms    | owner removes their own radio from the menu, guests cannot        | test_radio.lua  | the delete command: owner removes their own radio
+perms    | malformed / hostile commands ignored                              | test_radio.lua  | malformed or hostile commands are ignored
+perms    | spam: adds spaced out, command floods cut off                     | test_radio.lua  | spam: adds are spaced out and a command flood is cut off
+
+# ---- radios that stay (server owner)
+pinned   | pinned radios survive TTT round cleanup, mid-song                 | test_radio.lua  | unpinned radios go with the round cleanup
+pinned   | pinned radios + queue + position survive a restart                | test_radio.lua  | pinned radios and their queue survive a restart
+pinned   | removing a pinned radio from the menu deletes it for good         | test_radio.lua  | removing a pinned radio from the menu deletes it for good
+pinned   | a stray remover does not lose a pinned radio                      | test_radio.lua  | a stray remover on a pinned radio does not lose it
+pinned   | only admins move/tool pinned radios; drops save the new spot      | test_radio.lua  | pinned radios: only admins physgun
+pinned   | an unpinned radio's station ends with its entity                  | test_radio.lua  | an unpinned radio's station goes when its entity is removed
+pinned   | bradio_place puts a pinned radio where an admin looks (TTT)       | test_radio.lua  | bradio_place: admins place a pinned radio where they look
+pinned   | bradio_play / bradio_status from console and rcon                 | test_radio.lua  | bradio_play and bradio_status from the console
+
+# ---- sound (what players hear)
+sound    | every listener hears the same moment of the song                  | test_client.lua | a playing station opens a channel at the station's clock
+sound    | pause/resume reach every listener                                 | test_client.lua | pause pauses the channel where it is
+sound    | a seek reaches every listener                                     | test_client.lua | a seek by the owner moves every listener's channel
+sound    | a new song switches channels and starts on time                   | test_client.lua | a new song closes the old channel and opens the new one at 0
+sound    | directional speaker: loud in front of the grille, soft behind     | test_radio.lua  | directivity: loud in front of the grille
+sound    | directional speaker, heard in game                                | test_client.lua | the speaker is directional: same distance, louder in front than behind
+sound    | left/right from where you look, follows your head                 | test_radio.lua  | pan: left/right from your view
+sound    | left/right heard in game                                          | test_client.lua | pan: the radio on your right is in your right ear
+sound    | music in the distance: fades with distance, gone past the range   | test_client.lua | volume fades with distance and stops past the range
+sound    | walls muffle it                                                   | test_client.lua | a wall between you and the radio muffles it
+sound    | the volume slider is heard at once and keeps the direction        | test_client.lua | the volume slider is heard at once, louder and softer, still directional
+sound    | mute one radio for yourself                                       | test_client.lua | mute for me closes it for you only
+sound    | your own volume / turn radios off                                 | test_client.lua | bradio_enabled 0 turns every radio off for you
+sound    | only the nearest 4 radios download and play                       | test_client.lua | only the 4 nearest radios play at once
+sound    | a stream that fails to open is retried, not hammered              | test_client.lua | a stream that fails to open is retried, not hammered
+sound    | a radio that goes away goes quiet                                 | test_client.lua | a station going away stops its channel
+
+# ---- the menu (press E)
+menu     | the menu builds for guests and admins                             | test_client.lua | the menu builds and refreshes for a guest and an admin
+menu     | buttons send add / play next / skip / pause / stop / clear / remove / move / library | test_client.lua | menu buttons send the right commands
+menu     | volume slider: quick while dragging, final value always sent      | test_client.lua | the volume slider sends quickly while dragging
+menu     | guests see control buttons greyed out                             | test_client.lua | a guest sees control buttons greyed out
+menu     | a guest's own song offers Skip                                    | test_client.lua | a guest's own song shows Skip
+menu     | E opens the menu with that player's permissions + the library     | test_radio.lua  | pressing E opens the menu with that player's permissions
+menu     | a joining player gets every radio's state                         | test_radio.lua  | a player joining gets every radio's state once
+menu     | clients get the queue and the public audio URL                    | test_radio.lua  | the state sent to clients carries the queue and the public URL
+
+# ---- the Crosley Cooper model
+model    | builds; bounds fit the case                                       | test_radio.lua  | the model builds and its bounds fit the case
+model    | every part textured, no NaN, within engine mesh limits            | test_radio.lua  | model: every part has a texture
+model    | Crosley proportions, grille faces forward, speaker on the grille  | test_radio.lua  | model: Crosley proportions
+model    | every texture op is drawable                                      | test_radio.lua  | model: every texture draw-op is one the game knows
+model    | textures draw in game                                             | test_client.lua | textures: every draw op runs
+model    | meshes build in game                                              | test_client.lua | meshes build, one per material
+model    | it draws and is lit by the room                                   | test_client.lua | the radio draws (idle clock) and lights its materials
+model    | the live display: time, title, paused, loading, UTF-8 titles      | test_client.lua | the display draws while playing, paused and loading
+
+# ---- the relay (YouTube -> MP3, server side)
+relay    | health check                                                      | test_relay.py   | test_health
+relay    | fetch, then serve with Range (late joiners seek)                  | test_relay.py   | test_fetch_then_serve_with_ranges
+relay    | HEAD + cache headers for players                                  | test_relay.py   | test_head_and_headers_for_players
+relay    | the internet cannot make it download anything                     | test_relay.py   | test_public_cannot_trigger_downloads
+relay    | the game server on the same box is trusted (srcds binds its -ip)  | test_relay.py   | test_same_host_on_its_lan_address_is_local
+relay    | bad keys / path tricks refused                                    | test_relay.py   | test_bad_keys_and_paths
+relay    | outside the prefix / unknown paths are 404                        | test_relay.py   | test_paths_outside_the_prefix_and_unknown_ones
+relay    | download errors reported with YouTube's reason                    | test_relay.py   | test_download_errors_are_reported
+relay    | a failed download is not retried within a minute                  | test_relay.py   | test_a_failed_download_waits_a_minute_before_retrying
+relay    | many listeners at once: one download                              | test_relay.py   | test_many_listeners_asking_at_once_cause_one_download
+relay    | cache cap: least recently used go, library and recent stay        | test_relay.py   | test_eviction_keeps_pinned_and_recent
+relay    | survives a restart                                                | test_relay.py   | test_meta_survives_restart
+relay    | the game server reports a relay outage instead of breaking        | test_radio.lua  | the relay being down is reported, not fatal
+relay    | per-box relay address + key from cfg/burrito_radio.cfg            | test_radio.lua  | per-box settings come from cfg/burrito_radio.cfg
+
+# ---- shipping it
+ship     | every client file reaches players; server code never does         | test_ship.py    | test_every_client_file_is_sent_to_players_and_loaded
+ship     | the Workshop/addon package is Lua only, titled Burrito            | test_ship.py    | test_addon_json_ships_lua_only
+ship     | every script parses and is executable                             | test_ship.py    | test_scripts_parse
+ship     | the relay runs boxed in (own user, read-only system, memory cap)  | test_ship.py    | test_relay_service_is_boxed_in
+ship     | reinstalling the relay keeps the owner's settings and key         | test_ship.py    | test_relay_setup_never_overwrites_the_owners_config
+ship     | deploys update files in place (autorefresh reaches players), never restart | test_ship.py | test_deploy_updates_in_place_so_autorefresh_reaches_players
+ship     | the offline preview renders all four views                        | test_ship.py    | test_preview_renders
+sound    | falloff: clearly quieter a few steps away, faint far off, silent past range | test_radio.lua | falloff: real-sound drop close up

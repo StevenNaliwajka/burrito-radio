@@ -108,6 +108,25 @@ function BRadio.Pan(rx, ry, rz, fx, fy, fz, dx, dy, dz, dist)
     return pan, gain
 end
 
+--[[ FALLOFF: how loud at `dist` from the speaker, for a station of `range`.
+     Real sound: half as loud at twice the distance ((REF/d)^0.8), so a few
+     steps away is clearly quieter and the radio sounds like it is THERE, not
+     around you; it still carries faintly far off ("music in the distance"),
+     and fades to nothing over the last 40% of the range. ]]
+BRadio.FalloffRef = 110
+function BRadio.Falloff(dist, range)
+    range = range or BRadio.DefaultRange
+    local ref = BRadio.FalloffRef
+    local v = dist <= ref and 1 or (ref / dist) ^ 0.8
+    local t = dist / math.max(range, 1)
+    if t >= 1 then return 0 end
+    if t > 0.6 then
+        local x = (t - 0.6) / 0.4
+        v = v * (1 - x * x * (3 - 2 * x))
+    end
+    return v
+end
+
 -- the audio URL a client fetches
 function BRadio.TrackURL(base, key)
     return (base or ""):gsub("/+$", "") .. "/a/" .. key .. ".mp3"

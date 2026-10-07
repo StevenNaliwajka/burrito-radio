@@ -229,6 +229,7 @@ function M.new()
         WriteData = function(d) cur.fields[#cur.fields + 1] = d end,
         Send = function(ply) cur.to = ply W.sent[#W.sent + 1] = cur end,
         Broadcast = function() cur.to = "all" W.sent[#W.sent + 1] = cur end,
+        SendToServer = function() cur.to = "server" W.sent[#W.sent + 1] = cur end,
         Receive = function(name, fn) W.net[name] = fn end,
         ReadUInt = function() return W.reading[W.ri] and #W.reading[W.ri] or 0 end,
         ReadData = function() local d = W.reading[W.ri] W.ri = W.ri + 1 return d end,
@@ -294,7 +295,9 @@ function M.new()
     function Ply:IsAdmin() return self.admin or false end
     function Ply:IsBot() return false end
     function Ply:GetPos() return self.pos end
-    function Ply:PrintMessage() end
+    function Ply:PrintMessage(_, text) self.console = (self.console or "") .. tostring(text) .. "\n" end
+    function Ply:GetEyeTrace() return { HitPos = Vector(200, 0, 0), HitNormal = Vector(0, 0, 1) } end
+    function Ply:EyeAngles() return Angle(0, 90, 0) end
     function W:player(name, opts)
         opts = opts or {}
         local p = setmetatable({ name = name, sid = "7656" .. name, uid = #self.players + 1, connected = true,
@@ -376,6 +379,20 @@ function M.new()
         local data = encode(args)
         self.reading, self.ri = { data }, 1
         self.net["bradio_cmd"](#data, ply)
+    end
+
+    -- raw bytes through the command receiver (malformed payloads)
+    function W:raw(ply, data)
+        self.reading, self.ri = { data }, 1
+        self.net["bradio_cmd"](#data, ply)
+    end
+
+    function W:sentTo(ply, name)
+        local out = {}
+        for _, m in ipairs(self.sent) do
+            if m.name == name and (m.to == ply or m.to == "all") then out[#out + 1] = m end
+        end
+        return out
     end
 
     function W:notices(ply)
