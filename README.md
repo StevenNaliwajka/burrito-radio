@@ -1,4 +1,6 @@
-# gmod-radio: Burrito Radio
+# Burrito Radio
+
+Public: https://github.com/StevenNaliwajka/burrito-radio (developed on GitLab `root/gmod-radio`; push both).
 
 *The mod is Burrito's: its name, category (Spawn menu → Burrito), author, entity class
 (`burrito_radio`) and convars (`bradio_*`). "Naliwajka" appears only in server addresses
