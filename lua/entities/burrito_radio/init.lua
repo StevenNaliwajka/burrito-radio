@@ -35,8 +35,14 @@ function ENT:Initialize()
     end
 end
 
+-- E opens the menu; Shift+E picks it up to carry it (E again, or click, to drop)
 function ENT:Use(activator)
-    if IsValid(activator) and activator:IsPlayer() then BRadio.OpenMenu(activator, self) end
+    if not (IsValid(activator) and activator:IsPlayer()) then return end
+    if activator:KeyDown(IN_SPEED) then
+        BRadio.PickUp(activator, self)
+    else
+        BRadio.OpenMenu(activator, self)
+    end
 end
 
 function ENT:OnTakeDamage(dmg)

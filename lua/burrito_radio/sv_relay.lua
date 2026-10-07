@@ -21,6 +21,8 @@ local cvRelay = CreateConVar("bradio_relay_url", "http://127.0.0.1:8090/radio", 
     "Radio: where the server reaches the relay")
 local cvPublic = CreateConVar("bradio_public_url", "https://www.naliwajka.com/radio", FCVAR_ARCHIVE,
     "Radio: where players download the audio from")
+-- (here, not in sv_radio: cfg/burrito_radio.cfg is read below and may set it)
+CreateConVar("bradio_owners", "", FCVAR_ARCHIVE, "Radio: SteamID64s with full rights on every radio (the server owner)")
 local cvKey = CreateConVar("bradio_relay_key", "", bit.bor(FCVAR_ARCHIVE, FCVAR_PROTECTED, FCVAR_DONTRECORD),
     "Radio: the relay's RADIO_KEY (only when it is on another box)")
 

@@ -625,6 +625,26 @@ C.pldelete = function(ply, st, a)
     BRadio.SendLibrary(ply)
 end
 
+-- carrying it: Shift+E on the radio, or the menu's Pick up. Your own radio (or any,
+-- for admins); a pinned one is admins' and stays where it is put down (sv_persist)
+function BRadio.PickUp(ply, ent)
+    local st = BRadio.StationOf(ent)
+    if not st or not IsValid(ply) then return false end
+    if not BRadio.CanControl(ply, st) then
+        BRadio.Tell(ply, "Only " .. (st.permanent and "admins" or (st.ownerName .. " or an admin")) .. " can move this radio.")
+        return false
+    end
+    if ply.IsPlayerHolding and ply:IsPlayerHolding() then return false end
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) then phys:EnableMotion(true) phys:Wake() end
+    ply:PickupObject(ent)
+    return true
+end
+
+C.pickup = function(ply, st)
+    if IsValid(st.ent) then BRadio.PickUp(ply, st.ent) end
+end
+
 C.pin = function(ply, st, a)
     if not need("admin", ply, st) then return end
     BRadio.SetPinned(st, a.on and true or false)

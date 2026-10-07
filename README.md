@@ -29,6 +29,9 @@ That gives you music going off in the distance on gmod.naliwajka.com.
 * **Spawn** (sandbox / BMX mode): Spawn menu → Entities → Burrito → *Radio (Crosley Cooper)*.
   One per player (`bradio_max_per_player`). Admins in any mode: look at a spot and run
   `bradio_place` in console for a **pinned** radio (stays through rounds, map changes, restarts).
+* **Pick it up**: Shift+E on it (or the menu's Pick up) carries it; E or a click drops it.
+  The physgun and gravity gun work too. Your own radio is yours to move; a pinned one is
+  for admins and `bradio_owners`, and stays wherever it is put down.
 * **Press E on it** for the menu:
   * paste a YouTube **video or playlist** or a **Spotify** song/album/playlist link, or just type a song name (only YouTube and Spotify are accepted);
     **Add** puts it at the end, **Play next** (owner/admins) right after the current song
@@ -62,6 +65,7 @@ Pinned radios and their queues: `data/burrito_radio/maps/<map>.json`.
 | `bradio_relay_url` | `http://127.0.0.1:8090/radio` | where the server reaches the relay |
 | `bradio_public_url` | `https://www.naliwajka.com/radio` | where players' games download the audio |
 | `bradio_relay_key` | *(empty)* | the relay's `RADIO_KEY`, only when it runs on another box |
+| `bradio_owners` | *(empty)* | SteamID64s with full rights on every radio (the server owner) |
 | `bradio_add` | `0` | `1` = only the radio's owner and admins may queue |
 | `bradio_user_tracks` | `25` | most songs one player may have queued on a radio |
 | `bradio_max_queue` | `300` | queue length cap |

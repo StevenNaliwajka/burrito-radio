@@ -8,7 +8,7 @@ import re
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-AREAS = {"play", "queue", "library", "perms", "pinned", "sound", "menu", "model", "relay", "ship", "live", "cache", "security"}
+AREAS = {"play", "queue", "library", "perms", "pinned", "sound", "menu", "model", "relay", "ship", "live", "cache", "security", "move"}
 
 
 def features():

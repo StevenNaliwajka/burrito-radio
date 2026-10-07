@@ -172,6 +172,18 @@ end)
 hook.Add("GravGunPickupAllowed", "bradio_protect", function(ply, ent)
     if pinned(ent) and not BRadio.IsAdmin(ply) then return false end
 end)
+local function putDown(ent)
+    if pinned(ent) then
+        local st = BRadio.StationOf(ent)
+        local phys = ent:GetPhysicsObject()
+        if IsValid(phys) then phys:EnableMotion(false) end
+        st.pos, st.ang = ent:GetPos(), ent:GetAngles()
+        BRadio.SavePinned()
+    end
+end
+-- carried (Shift+E) or gravgunned to a new spot: a pinned radio stays there
+hook.Add("OnPlayerPhysicsDrop", "bradio_persist", function(_, ent) putDown(ent) end)
+hook.Add("GravGunOnDropped", "bradio_persist", function(_, ent) putDown(ent) end)
 hook.Add("PhysgunDrop", "bradio_persist", function(_, ent)
     if pinned(ent) then
         local st = BRadio.StationOf(ent)

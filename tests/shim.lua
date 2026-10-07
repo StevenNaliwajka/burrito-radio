@@ -136,6 +136,7 @@ function M.new()
     G.SERVER, G.CLIENT = true, false
     G.FCVAR_ARCHIVE, G.FCVAR_PROTECTED, G.FCVAR_DONTRECORD = 128, 32, 131072
     G.HUD_PRINTCONSOLE = 2
+    G.IN_SPEED = 131072
     G.BRadio = nil
     G.CAMI = nil
     G.Vector, G.Angle = Vector, Angle
@@ -206,7 +207,7 @@ function M.new()
     G.concommand = { Add = function(n, fn) W.cmds[n] = fn end }
     G.GetConVar = function(name)
         if W.cvars[name] == nil then return nil end
-        return { SetString = function(_, v) W.cvars[name] = v end }
+        return { SetString = function(_, v) W.cvars[name] = v end, GetString = function() return tostring(W.cvars[name]) end }
     end
     G.RunConsoleCommand = function(name, v) W.cvars[name] = v end
 
@@ -270,6 +271,7 @@ function M.new()
     Phys.__index = Phys
     function Phys:IsValid() return true end
     function Phys:EnableMotion(b) self.motion = b end
+    function Phys:Wake() end
     G.ents = {
         Create = function(class)
             local e = setmetatable({ class = class, idx = W.nextEnt, pos = Vector(), ang = Angle(),
@@ -300,6 +302,10 @@ function M.new()
     function Ply:PrintMessage(_, text) self.console = (self.console or "") .. tostring(text) .. "\n" end
     function Ply:GetEyeTrace() return { HitPos = Vector(200, 0, 0), HitNormal = Vector(0, 0, 1) } end
     function Ply:EyeAngles() return Angle(0, 90, 0) end
+    function Ply:IsPlayer() return true end
+    function Ply:KeyDown(k) return self.keys and self.keys[k] or false end
+    function Ply:IsPlayerHolding() return self.holding ~= nil end
+    function Ply:PickupObject(e) self.holding = e end
     function W:player(name, opts)
         opts = opts or {}
         local p = setmetatable({ name = name, sid = "7656" .. name, uid = #self.players + 1, connected = true,

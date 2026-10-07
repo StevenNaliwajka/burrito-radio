@@ -54,8 +54,19 @@ function BRadio.Position(st, now)
     return (now or CurTime()) - (st.startedAt or 0)
 end
 
+-- bradio_owners: SteamID64s (space/comma separated) with full rights on every radio,
+-- whatever the admin mod says: the server's owner, on a box with no ULX ranks.
+function BRadio.IsOwner(ply)
+    local cv = GetConVar and GetConVar("bradio_owners")
+    if not cv or not IsValid(ply) then return false end
+    local sid = ply:SteamID64() or ""
+    for id in cv:GetString():gmatch("%d+") do if id == sid then return true end end
+    return false
+end
+
 function BRadio.IsAdmin(ply)
     if not IsValid(ply) then return true end   -- the server console
+    if BRadio.IsOwner(ply) then return true end
     if CAMI and CAMI.PlayerHasAccess then
         local ok = CAMI.PlayerHasAccess(ply, "bradio_admin", nil)
         if ok ~= nil then return ok end

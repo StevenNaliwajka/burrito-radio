@@ -773,5 +773,57 @@ test("a cleanup brings a pinned radio back at the same spot and angle", function
     eq(e.phys.motion, false, "frozen")
 end)
 
+-- ------------------------------------------------------------------ moving it
+local function useEnt(W, ply, shift)
+    ply.keys = { [IN_SPEED] = shift or nil }
+    dofile("lua/entities/burrito_radio/init.lua")
+end
+
+test("Shift+E picks your radio up to carry it; plain E opens the menu", function()
+    local W = world()
+    ENT = {}
+    _G.AddCSLuaFile = function() end
+    _G.include = function(p) if p == "shared.lua" then return end return dofile("lua/" .. p) end
+    dofile("lua/entities/burrito_radio/init.lua")
+    local use = ENT.Use
+    W.sent = {}
+    W.owner.keys = {}
+    use(W.ent, W.owner)
+    truthy(#W:sentTo(W.owner, "bradio_open") > 0, "plain E: the menu")
+    eq(W.owner.holding, nil)
+    W.owner.keys = { [IN_SPEED] = true }
+    use(W.ent, W.owner)
+    eq(W.owner.holding, W.ent, "Shift+E: carrying it")
+    eq(W.ent.phys.motion, true, "free to move")
+    W.guest.keys = { [IN_SPEED] = true }
+    use(W.ent, W.guest)
+    eq(W.guest.holding, nil, "a guest cannot carry someone else's radio")
+    truthy(W:lastNotice(W.guest):find("can move this radio", 1, true))
+end)
+
+test("the menu's Pick up carries it too", function()
+    local W = world()
+    W:cmd(W.owner, "pickup", { id = W.id })
+    eq(W.owner.holding, W.ent)
+end)
+
+test("a pinned radio: admins and bradio_owners carry it, and it stays where it is put down", function()
+    local W = world()
+    W:cmd(W.admin, "pin", { id = W.id, on = true }) W:advance(0.5)
+    local ent = BRadio.Stations.p1.ent
+    ent.GetClass = function() return "burrito_radio" end
+    eq(BRadio.PickUp(W.owner, ent), false, "the old owner is not an admin")
+    W.owner.sid = "76561198170324345"            -- real SteamID64s are numbers
+    W.cvars.bradio_owners = "76561190000000001, 76561198170324345"
+    truthy(BRadio.IsAdmin(W.owner), "bradio_owners makes them an owner")
+    eq(BRadio.PickUp(W.owner, ent), true)
+    ent:SetPos(V(500, 40, 10))
+    W:run("OnPlayerPhysicsDrop", W.owner, ent, false)
+    eq(ent.phys.motion, false, "frozen where it was put")
+    truthy(W.data["burrito_radio/maps/gm_test.json"]:find("500", 1, true), "the new spot is saved")
+    W:cleanup()
+    eq(BRadio.Stations.p1.ent:GetPos().x, 500, "and that is where it comes back")
+end)
+
 io.write(string.format("\n%d passed, %d failed\n", pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -87,7 +87,7 @@ sound    | a radio that goes away goes quiet                                 | t
 
 # ---- the menu (press E)
 menu     | the menu builds for guests and admins                             | test_client.lua | the menu builds and refreshes for a guest and an admin
-menu     | buttons send add / play next / skip / pause / stop / clear / remove / move / library | test_client.lua | menu buttons send the right commands
+menu     | buttons send add / play next / skip / pause / stop / clear / pick up / remove / move / library | test_client.lua | menu buttons send the right commands
 menu     | volume slider: quick while dragging, final value always sent      | test_client.lua | the volume slider sends quickly while dragging
 menu     | guests see control buttons greyed out                             | test_client.lua | a guest sees control buttons greyed out
 menu     | a guest's own song offers Skip                                    | test_client.lua | a guest's own song shows Skip
@@ -151,3 +151,9 @@ security | typed words never become yt-dlp options                           | t
 security | library files must be inside library/ (no path tricks)            | test_relay.py   | test_library_files_must_be_inside_the_library
 security | HTTP limits: long paths, other methods, busy lookups, wrong keys   | test_relay.py   | test_http_limits
 security | the relay is sandboxed and cannot reach the LAN                   | test_ship.py    | test_relay_cannot_reach_the_lan_and_is_sandboxed
+
+# ---- moving it
+move     | Shift+E carries your radio; plain E opens the menu                | test_radio.lua  | Shift+E picks your radio up to carry it
+move     | the menu's Pick up carries it                                     | test_radio.lua  | the menu's Pick up carries it too
+move     | pinned: admins/bradio_owners carry it; it stays where put down    | test_radio.lua  | a pinned radio: admins and bradio_owners carry it
+move     | only admins physgun/tool pinned radios; physgun drops save the spot | test_radio.lua | pinned radios: only admins physgun
