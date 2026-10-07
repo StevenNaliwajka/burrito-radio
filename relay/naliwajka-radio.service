@@ -1,5 +1,5 @@
 [Unit]
-Description=Naliwajka Radio relay (YouTube -> MP3 for the GMod radios)
+Description=Burrito Radio relay (YouTube -> MP3 for the GMod radios)
 After=network-online.target
 Wants=network-online.target
 

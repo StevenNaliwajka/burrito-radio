@@ -1,5 +1,5 @@
 --[[--------------------------------------------------------------------------
-    naliwajka_radio/sh_model.lua
+    burrito_radio/sh_model.lua
 
     The radio's look: a Crosley Cooper (CR1121A-EB, "Elemental Blue"), built
     as plain data so the same code feeds the game and the offline preview
@@ -8,13 +8,13 @@
     WHY NOT AN .MDL. A compiled model needs studiomdl, a Windows tool from the
     GMod client, plus Blender time per change. The radio is a rounded box
     with a few parts on it, which is exactly what a mesh does well, and the
-    textures are drawn at load (NRadio.Model.Textures are draw ops, run by
+    textures are drawn at load (BRadio.Model.Textures are draw ops, run by
     cl_model.lua with surface.* and by tools/preview/render.py with PIL), so
     the addon ships no binary assets at all and every player already has it.
 
     Measured off the product photos (crosleyradio.com, CR1121A-EB-W2/W4):
     5.25" wide, 3.25" tall to the top of the case, 3.25" deep, scaled up by
-    NRadio.Scale so it reads as a radio from across a room.
+    BRadio.Scale so it reads as a radio from across a room.
 
     Local frame: +X is the FRONT (the grille faces where the entity faces),
     +Y is to the left of someone facing the radio... so the viewer's right is
@@ -22,11 +22,11 @@
     All model numbers below are in INCHES; Build() applies the scale.
 ----------------------------------------------------------------------------]]
 
-NRadio = NRadio or {}
+BRadio = BRadio or {}
 local M = {}
-NRadio.Model = M
+BRadio.Model = M
 
-NRadio.Scale = NRadio.Scale or 2.5
+BRadio.Scale = BRadio.Scale or 2.5
 
 -- case
 local HX, HY = 1.625, 2.625         -- half depth, half width
@@ -265,7 +265,7 @@ M.Layout = {
 }
 
 function M.Build(scale)
-    scale = scale or NRadio.Scale
+    scale = scale or BRadio.Scale
     local parts = newParts()
     local L = M.Layout
 
@@ -340,13 +340,13 @@ end
 
 -- the collision / render box (scaled), and where a 3D2D panel sits on the display
 function M.Bounds(scale)
-    scale = scale or NRadio.Scale
+    scale = scale or BRadio.Scale
     local ax = M.Layout.antenna
     return { -HX * scale, -HY * scale, 0 }, { (HX + M.Layout.knob.depth) * scale, HY * scale, (FOOT + H) * scale }
 end
 
 function M.DisplayRect(scale)
-    scale = scale or NRadio.Scale
+    scale = scale or BRadio.Scale
     local d = M.Layout.display
     return {
         x = (HX + 0.006) * scale,

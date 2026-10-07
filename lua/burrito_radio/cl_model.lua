@@ -1,5 +1,5 @@
 --[[--------------------------------------------------------------------------
-    naliwajka_radio/cl_model.lua  -- draws the Crosley Cooper
+    burrito_radio/cl_model.lua  -- draws the Crosley Cooper
 
     sh_model.lua describes it (triangles + texture draw-ops); this turns that
     into render-target textures, UnlitGeneric materials and IMeshes once, and
@@ -16,14 +16,14 @@
     it; a clock (like the real one's 10:08) when nothing is playing.
 
     Render targets can lose their contents when the game's video device
-    resets; `nradio_rebuild` redraws them (also done on a resolution change).
+    resets; `bradio_rebuild` redraws them (also done on a resolution change).
 ----------------------------------------------------------------------------]]
 
-NRadio.Draw = NRadio.Draw or {}
-local D = NRadio.Draw
-local M = NRadio.Model
+BRadio.Draw = BRadio.Draw or {}
+local D = BRadio.Draw
+local M = BRadio.Model
 
-local cvDisplay = CreateClientConVar("nradio_display", "1", true, false, "Radio: draw the radio's live display (1/0)")
+local cvDisplay = CreateClientConVar("bradio_display", "1", true, false, "Radio: draw the radio's live display (1/0)")
 
 D.TexVersion = "v1"
 D.mats = D.mats or {}
@@ -33,7 +33,7 @@ D.meshes = D.meshes or nil
 local fonts = {}
 local function texFont(size)
     size = math.floor(size)
-    local name = "NRadioTex" .. size
+    local name = "BRadioTex" .. size
     if not fonts[name] then
         surface.CreateFont(name, { font = "Arial", size = size, weight = 900, antialias = true, extended = false })
         fonts[name] = true
@@ -159,7 +159,7 @@ end
 function D.BuildTextures()
     for name, spec in pairs(M.Textures) do
         local w, h, ops = spec[1], spec[2], spec[3]
-        local rt = GetRenderTargetEx("nradio_" .. name .. "_" .. D.TexVersion, w, h,
+        local rt = GetRenderTargetEx("bradio_" .. name .. "_" .. D.TexVersion, w, h,
             RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGB888)
         render.PushRenderTarget(rt)
         render.Clear(0, 0, 0, 255, true, true)
@@ -170,7 +170,7 @@ function D.BuildTextures()
         if not ok then ErrorNoHalt("[Radio] texture " .. name .. ": " .. tostring(err) .. "\n") end
         local mat = D.mats[name]
         if not mat then
-            mat = CreateMaterial("nradio_" .. name .. "_" .. D.TexVersion, "UnlitGeneric", {
+            mat = CreateMaterial("bradio_" .. name .. "_" .. D.TexVersion, "UnlitGeneric", {
                 ["$basetexture"] = rt:GetName(),
                 ["$vertexcolor"] = "1",
                 ["$nocull"] = "1",
@@ -221,17 +221,17 @@ function D.Rebuild()
     D.texturesBuilt = false
     D.BuildMeshes()
 end
-concommand.Add("nradio_rebuild", function() D.Rebuild() end)
-hook.Add("OnScreenSizeChanged", "nradio_rebuild", function() D.texturesBuilt = false end)
+concommand.Add("bradio_rebuild", function() D.Rebuild() end)
+hook.Add("OnScreenSizeChanged", "bradio_rebuild", function() D.texturesBuilt = false end)
 
 -- textures are drawn outside any other render pass: before the frame, once
-hook.Add("PreRender", "nradio_textures", function()
-    if not D.texturesBuilt and #ents.FindByClass(NRadio.Class) > 0 then D.BuildTextures() end
+hook.Add("PreRender", "bradio_textures", function()
+    if not D.texturesBuilt and #ents.FindByClass(BRadio.Class) > 0 then D.BuildTextures() end
 end)
 
 -- --------------------------------------------------------------- display
-surface.CreateFont("NRadioLED", { font = "Consolas", size = 120, weight = 700, antialias = true })
-surface.CreateFont("NRadioLEDSmall", { font = "Consolas", size = 30, weight = 600, antialias = true, extended = true })
+surface.CreateFont("BRadioLED", { font = "Consolas", size = 120, weight = 700, antialias = true })
+surface.CreateFont("BRadioLEDSmall", { font = "Consolas", size = 30, weight = 600, antialias = true, extended = true })
 
 -- split a UTF-8 string into characters (titles are full of accents and emoji)
 function D.Chars(s)
@@ -261,20 +261,20 @@ local function drawDisplay(ent, st)
     elseif st.state == "loading" then
         big, small, blink = "--:--", "LOADING  " .. (st.cur.t or ""), true
     else
-        local pos = NRadio.Position(st, now)
+        local pos = BRadio.Position(st, now)
         if pos < 0 then pos = 0 end
-        big = NRadio.FormatTime(pos)
+        big = BRadio.FormatTime(pos)
         if #big < 5 then big = "0" .. big end
         small = st.cur.t or ""
         blink = st.state == "paused"
     end
-    draw.SimpleText("88:88", "NRadioLED", pw / 2, ph * 0.40, LEDDim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    draw.SimpleText("88:88", "BRadioLED", pw / 2, ph * 0.40, LEDDim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     if not blink or math.floor(now * 2) % 2 == 0 then
-        draw.SimpleText(big, "NRadioLED", pw / 2 + 1, ph * 0.40 + 1, LEDGlow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        draw.SimpleText(big, "NRadioLED", pw / 2, ph * 0.40, LED, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(big, "BRadioLED", pw / 2 + 1, ph * 0.40 + 1, LEDGlow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(big, "BRadioLED", pw / 2, ph * 0.40, LED, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
     -- the title: a fixed-width font, so a marquee is just a window of characters
-    surface.SetFont("NRadioLEDSmall")
+    surface.SetFont("BRadioLEDSmall")
     local cw = surface.GetTextSize("M")
     local fit = math.max(4, math.floor((pw - 16) / cw))
     local chars = D.Chars(small)
@@ -290,7 +290,7 @@ local function drawDisplay(ent, st)
         for i = 1, fit do out[i] = loop[(off + i - 1) % #loop + 1] end
         line = table.concat(out)
     end
-    draw.SimpleText(line, "NRadioLEDSmall", pw / 2, ph * 0.82, LED, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    draw.SimpleText(line, "BRadioLEDSmall", pw / 2, ph * 0.82, LED, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     cam.End3D2D()
 end
 
@@ -317,7 +317,7 @@ function D.Radio(ent)
     cam.PopModelMatrix()
 
     if cvDisplay:GetBool() and EyePos():DistToSqr(ent:GetPos()) < 700 * 700 then
-        local st = NRadio.CL and NRadio.CL.Stations[ent:GetStationId()]
+        local st = BRadio.CL and BRadio.CL.Stations[ent:GetStationId()]
         drawDisplay(ent, st)
     end
 end

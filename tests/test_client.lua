@@ -38,7 +38,7 @@ end
 local W = shim.new()
 local G = _G
 G.SERVER, G.CLIENT = false, true
-G.NRadio = nil
+G.BRadio = nil
 
 -- the client API the radio uses, with real return types where the code computes on them
 G.surface = mock("surface")
@@ -98,7 +98,7 @@ G.math.Round = function(v) return math.floor(v + 0.5) end
 
 -- entities: one radio for station "r1"
 local radio = {
-    IsValid = function() return true end, GetClass = function() return "naliwajka_radio" end,
+    IsValid = function() return true end, GetClass = function() return "burrito_radio" end,
     GetStationId = function() return "r1" end, GetPos = function() return shim.Vector(0, 0, 0) end,
     WorldSpaceCenter = function() return shim.Vector(0, 0, 10) end,
     GetWorldTransformMatrix = function() return {} end,
@@ -128,34 +128,34 @@ G.sound = { PlayURL = function(url, flags, cb)
     cb(chan)
 end }
 
-dofile("lua/autorun/naliwajka_radio.lua")
+dofile("lua/autorun/burrito_radio.lua")
 
 -- a station arriving over the net, as sv_radio sends it
 local function receiveState(t)
     local data = shim.encode(t)
     W.reading, W.ri = { data }, 1
-    W.net["nradio_state"]()
+    W.net["bradio_state"]()
 end
 
 test("textures: every draw op runs", function()
-    NRadio.Draw.BuildTextures()
-    truthy(NRadio.Draw.texturesBuilt)
+    BRadio.Draw.BuildTextures()
+    truthy(BRadio.Draw.texturesBuilt)
     truthy((calls.poly or 0) > 1000, "grille holes drawn as polys: " .. tostring(calls.poly))
-    for name in pairs(NRadio.Model.Textures) do truthy(NRadio.Draw.mats[name], "material " .. name) end
+    for name in pairs(BRadio.Model.Textures) do truthy(BRadio.Draw.mats[name], "material " .. name) end
 end)
 
 test("meshes build, one per material, with every vertex", function()
-    NRadio.Draw.BuildMeshes()
-    truthy(#NRadio.Draw.meshes >= 8, "meshes: " .. #NRadio.Draw.meshes)
+    BRadio.Draw.BuildMeshes()
+    truthy(#BRadio.Draw.meshes >= 8, "meshes: " .. #BRadio.Draw.meshes)
     truthy(verts > 3000, "vertices: " .. verts)
-    local mn, mx = NRadio.Draw.RenderBounds()
+    local mn, mx = BRadio.Draw.RenderBounds()
     truthy(mx.z > 13, "render bounds reach the antenna tip (" .. mx.z .. ")")
 end)
 
 test("the radio draws (idle clock) and lights its materials", function()
-    NRadio.Draw.Radio(radio)
+    BRadio.Draw.Radio(radio)
     truthy((calls.meshdraw or 0) >= 8)
-    local body = NRadio.Draw.mats.body
+    local body = BRadio.Draw.mats.body
     truthy(body["$color"] and body["$color"].x > 0.1, "lit")
 end)
 
@@ -185,33 +185,33 @@ test("volume fades with distance and stops past the range", function()
 end)
 
 test("the display draws while playing, paused and loading", function()
-    NRadio.Draw.Radio(radio)
-    NRadio.CL.Stations.r1.state = "paused"
-    NRadio.CL.Stations.r1.pausedAt = 50
-    NRadio.Draw.Radio(radio)
-    NRadio.CL.Stations.r1.state = "loading"
-    NRadio.Draw.Radio(radio)
-    truthy(#NRadio.Draw.Chars("héllo 🎵") == 7, "utf-8 aware")
+    BRadio.Draw.Radio(radio)
+    BRadio.CL.Stations.r1.state = "paused"
+    BRadio.CL.Stations.r1.pausedAt = 50
+    BRadio.Draw.Radio(radio)
+    BRadio.CL.Stations.r1.state = "loading"
+    BRadio.Draw.Radio(radio)
+    truthy(#BRadio.Draw.Chars("héllo 🎵") == 7, "utf-8 aware")
 end)
 
 test("the menu builds and refreshes for a guest and an admin", function()
     receiveState({ id = "r1", ent = 7, state = "playing", cur = { k = "yt-a", t = "Song", d = 100, b = "x", s = "7656me" },
         at = CurTime(), vol = 0.5, range = 3000, base = "https://www.naliwajka.com/radio",
         q = { { k = "yt-b", t = "Next", d = 90, b = "me", s = "7656me" }, { k = "yt-c", t = "Later", d = 0, b = "x", s = "x" } } })
-    NRadio.Menu.Open("r1", false, false, true)
-    NRadio.Menu.Refresh()
-    NRadio.Menu.Open("r1", true, true, true)
-    NRadio.CL.Library = { tracks = { { key = "lib-1", title = "Owner Song", duration = 100, album = "Chill" } },
+    BRadio.Menu.Open("r1", false, false, true)
+    BRadio.Menu.Refresh()
+    BRadio.Menu.Open("r1", true, true, true)
+    BRadio.CL.Library = { tracks = { { key = "lib-1", title = "Owner Song", duration = 100, album = "Chill" } },
         playlists = { { name = "Party", n = 3 } } }
-    NRadio.Menu.RefreshLibrary()
-    W:run("NRadioNotice", "hello")
+    BRadio.Menu.RefreshLibrary()
+    W:run("BRadioNotice", "hello")
 end)
 
 test("a station going away stops its channel", function()
     W.reading, W.ri = { "r1" }, 1
-    W.net["nradio_gone"]()
+    W.net["bradio_gone"]()
     W:advance(0.3)
-    truthy(NRadio.CL.Stations.r1 == nil)
+    truthy(BRadio.CL.Stations.r1 == nil)
 end)
 
 io.write(string.format("\n%d passed, %d failed\n", pass, fail))

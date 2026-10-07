@@ -2,12 +2,12 @@ include("shared.lua")
 
 function ENT:Initialize()
     self:InitBox()
-    local mn, mx = NRadio.Draw.RenderBounds()
+    local mn, mx = BRadio.Draw.RenderBounds()
     self:SetRenderBounds(mn, mx)
 end
 
 function ENT:Draw()
-    NRadio.Draw.Radio(self)
+    BRadio.Draw.Radio(self)
 end
 
 -- the hint when you look at it

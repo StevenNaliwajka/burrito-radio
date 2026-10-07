@@ -1,5 +1,5 @@
 [Unit]
-Description=Naliwajka Radio: update yt-dlp (YouTube changes often)
+Description=Burrito Radio: update yt-dlp (YouTube changes often)
 
 [Service]
 Type=oneshot

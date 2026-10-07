@@ -135,7 +135,7 @@ function M.new()
     G.SERVER, G.CLIENT = true, false
     G.FCVAR_ARCHIVE, G.FCVAR_PROTECTED, G.FCVAR_DONTRECORD = 128, 32, 131072
     G.HUD_PRINTCONSOLE = 2
-    G.NRadio = nil
+    G.BRadio = nil
     G.CAMI = nil
     G.Vector, G.Angle = Vector, Angle
     G.CurTime = function() return W.now end
@@ -266,7 +266,7 @@ function M.new()
             local e = setmetatable({ class = class, idx = W.nextEnt, pos = Vector(), ang = Angle(),
                 phys = setmetatable({ motion = true }, Phys) }, Ent)
             W.nextEnt = W.nextEnt + 1
-            e.OnRemove = function(self) NRadio.EntityRemoved(self) end
+            e.OnRemove = function(self) BRadio.EntityRemoved(self) end
             W.ents[#W.ents + 1] = e
             return e
         end,
@@ -369,20 +369,20 @@ function M.new()
         args.op = op
         local data = encode(args)
         self.reading, self.ri = { data }, 1
-        self.net["nradio_cmd"](#data, ply)
+        self.net["bradio_cmd"](#data, ply)
     end
 
     function W:notices(ply)
         local out = {}
         for _, m in ipairs(self.sent) do
-            if m.name == "nradio_notice" and m.to == ply then out[#out + 1] = m.fields[1] end
+            if m.name == "bradio_notice" and m.to == ply then out[#out + 1] = m.fields[1] end
         end
         return out
     end
     function W:lastNotice(ply) local n = self:notices(ply) return n[#n] end
 
     function W:boot()
-        dofile("lua/autorun/naliwajka_radio.lua")
+        dofile("lua/autorun/burrito_radio.lua")
         self:run("InitPostEntity")
     end
     return W

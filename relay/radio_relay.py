@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Naliwajka Radio relay: turns YouTube (and other) links into MP3 files GMod can play.
+"""Burrito Radio relay: turns YouTube (and other) links into MP3 files GMod can play.
 
 Garry's Mod plays audio with BASS (sound.PlayURL), which reads MP3/OGG over plain
 HTTP(S). It cannot play YouTube: the page is not audio, and the real stream URLs
@@ -500,7 +500,7 @@ def log(msg):
 
 # ------------------------------------------------------------------- HTTP
 class Handler(BaseHTTPRequestHandler):
-    server_version = "NaliwajkaRadio/" + VERSION
+    server_version = "BurritoRadio/" + VERSION
     relay = None  # set by serve()
 
     def log_message(self, fmt, *args):  # quiet: journald gets errors only

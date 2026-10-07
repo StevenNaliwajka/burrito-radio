@@ -1,7 +1,7 @@
 -- Dump the radio model (sh_model.lua) as JSON for tools/preview/render.py.
 -- Plain Lua 5.1, no GMod: run from the repo root, `lua tools/preview/export.lua > model.json`
-dofile("lua/naliwajka_radio/sh_model.lua")
-local M = NRadio.Model
+dofile("lua/burrito_radio/sh_model.lua")
+local M = BRadio.Model
 
 local function enc(v)
     local t = type(v)

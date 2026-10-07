@@ -37,11 +37,11 @@ if [ ! -f "$ETC/relay.env" ]; then
   say "config (first install)"
   key="$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 32)"
   cat > "$ETC/relay.env" <<CONF
-# Naliwajka Radio relay. Restart after editing: systemctl restart naliwajka-radio
+# Burrito Radio relay. Restart after editing: systemctl restart naliwajka-radio
 RADIO_LISTEN=0.0.0.0:8090
 RADIO_PREFIX=/radio
 RADIO_DATA=$DATA
-# A game server on ANOTHER box sends this as X-Radio-Key (its nradio_relay_key).
+# A game server on ANOTHER box sends this as X-Radio-Key (its bradio_relay_key).
 # The server on this box talks over 127.0.0.1 and needs no key.
 RADIO_KEY=$key
 RADIO_MAX_SECONDS=10800

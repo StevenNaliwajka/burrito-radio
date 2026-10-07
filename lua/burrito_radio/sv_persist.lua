@@ -1,18 +1,18 @@
 --[[--------------------------------------------------------------------------
-    naliwajka_radio/sv_persist.lua  -- what the server owner sets up stays put
+    burrito_radio/sv_persist.lua  -- what the server owner sets up stays put
 
-      data/naliwajka_radio/maps/<map>.json   pinned radios on that map: where,
+      data/burrito_radio/maps/<map>.json   pinned radios on that map: where,
                                              settings, and the queue (with the
                                              song that was playing and how far in)
-      data/naliwajka_radio/playlists.json    saved playlists (menu: Library tab)
+      data/burrito_radio/playlists.json    saved playlists (menu: Library tab)
 
     A pinned radio is frozen in place, comes back after TTT's round cleanup
     still playing, and comes back after a restart or map change at the song
     it was on. Only admins can move (physgun), tool or remove it.
 ----------------------------------------------------------------------------]]
 
-local S = NRadio.Stations
-local DIR = "naliwajka_radio"
+local S = BRadio.Stations
+local DIR = "burrito_radio"
 
 local function mapFile() return DIR .. "/maps/" .. game.GetMap() .. ".json" end
 
@@ -22,14 +22,14 @@ local function ensureDirs()
 end
 
 -- ------------------------------------------------------------- playlists
-function NRadio.SavePlaylists()
+function BRadio.SavePlaylists()
     ensureDirs()
-    file.Write(DIR .. "/playlists.json", util.TableToJSON(NRadio.Playlists, true))
+    file.Write(DIR .. "/playlists.json", util.TableToJSON(BRadio.Playlists, true))
 end
 
-function NRadio.LoadPlaylists()
+function BRadio.LoadPlaylists()
     local t = util.JSONToTable(file.Read(DIR .. "/playlists.json", "DATA") or "") or {}
-    NRadio.Playlists = type(t) == "table" and t or {}
+    BRadio.Playlists = type(t) == "table" and t or {}
 end
 
 -- ------------------------------------------------------------- pinned radios
@@ -37,7 +37,7 @@ local function trackRow(t, pos)
     return { key = t.key, title = t.title, duration = t.duration, by = t.by, bySid = t.bySid, at = pos }
 end
 
-function NRadio.SavePinned()
+function BRadio.SavePinned()
     ensureDirs()
     local rows = {}
     for _, st in pairs(S) do
@@ -47,7 +47,7 @@ function NRadio.SavePinned()
             if pos then
                 local q = {}
                 if st.current then
-                    q[1] = trackRow(st.current, (st.state == "playing" or st.state == "paused") and math.floor(NRadio.Position(st)) or 0)
+                    q[1] = trackRow(st.current, (st.state == "playing" or st.state == "paused") and math.floor(BRadio.Position(st)) or 0)
                 end
                 for _, t in ipairs(st.queue) do q[#q + 1] = trackRow(t) end
                 rows[#rows + 1] = {
@@ -64,15 +64,15 @@ end
 
 -- coalesce saves: at most one every few seconds
 local function saveSoon()
-    if timer.Exists("nradio_save") then return end
-    timer.Create("nradio_save", 3, 1, function() NRadio.SavePinned() end)
+    if timer.Exists("bradio_save") then return end
+    timer.Create("bradio_save", 3, 1, function() BRadio.SavePinned() end)
 end
 
-function NRadio.OnChanged(st)
+function BRadio.OnChanged(st)
     if st.permanent then saveSoon() end
 end
 
-function NRadio.SetPinned(st, on)
+function BRadio.SetPinned(st, on)
     if not st then return end
     if on and not st.permanent then
         -- pinned stations get a stable id so the file lines up across restarts
@@ -83,7 +83,7 @@ function NRadio.SetPinned(st, on)
         st.id = "p" .. n
         S[st.id] = st
         if IsValid(st.ent) then st.ent:SetStationId(st.id) end
-        net.Start(NRadio.Net.Gone) net.WriteString(old) net.Broadcast()
+        net.Start(BRadio.Net.Gone) net.WriteString(old) net.Broadcast()
     end
     st.permanent = on
     if on then
@@ -93,17 +93,17 @@ function NRadio.SetPinned(st, on)
             if IsValid(phys) then phys:EnableMotion(false) end
         end
     end
-    NRadio.Dirty(st)
-    NRadio.SavePinned()
+    BRadio.Dirty(st)
+    BRadio.SavePinned()
 end
 
-function NRadio.LoadPinned()
+function BRadio.LoadPinned()
     local t = util.JSONToTable(file.Read(mapFile(), "DATA") or "")
     if type(t) ~= "table" or type(t.radios) ~= "table" then return 0 end
     local n = 0
     for _, row in ipairs(t.radios) do
         if not S[row.id] and type(row.pos) == "table" then
-            local st = NRadio.NewStation({ id = row.id, permanent = true, volume = row.volume, range = row.range,
+            local st = BRadio.NewStation({ id = row.id, permanent = true, volume = row.volume, range = row.range,
                 loop = row.loop, shuffle = row.shuffle, autoplay = row.autoplay })
             st.pos = Vector(row.pos[1], row.pos[2], row.pos[3])
             st.ang = Angle(row.ang[1], row.ang[2], row.ang[3])
@@ -111,9 +111,9 @@ function NRadio.LoadPinned()
                 st.queue[#st.queue + 1] = { key = q.key, title = q.title, duration = tonumber(q.duration) or 0,
                     by = q.by, bySid = q.bySid, resumeAt = tonumber(q.at) }
             end
-            NRadio.SpawnRadio(st.pos, st.ang, st)
+            BRadio.SpawnRadio(st.pos, st.ang, st)
             if #st.queue > 0 then
-                NRadio.Advance(st, "restore")
+                BRadio.Advance(st, "restore")
             elseif row.stopped then
                 st.idleSince = CurTime() + 1e9
             end
@@ -123,61 +123,61 @@ function NRadio.LoadPinned()
     return n
 end
 
-hook.Add("InitPostEntity", "nradio_persist", function()
-    NRadio.LoadPlaylists()
+hook.Add("InitPostEntity", "bradio_persist", function()
+    BRadio.LoadPlaylists()
     -- give the relay's library a moment so autoplay has something to pick
     timer.Simple(3, function()
-        local n = NRadio.LoadPinned()
+        local n = BRadio.LoadPinned()
         if n > 0 then print("[Radio] " .. n .. " pinned radio(s) on " .. game.GetMap()) end
     end)
 end)
 
-hook.Add("ShutDown", "nradio_persist", function() NRadio.SavePinned() end)
+hook.Add("ShutDown", "bradio_persist", function() BRadio.SavePinned() end)
 
 -- TTT (and admins' cleanup button) remove every entity; pinned radios come straight back
-hook.Add("PreCleanupMap", "nradio_persist", function()
-    NRadio.CleaningUp = true
+hook.Add("PreCleanupMap", "bradio_persist", function()
+    BRadio.CleaningUp = true
     for _, st in pairs(S) do
         if st.permanent and IsValid(st.ent) then st.pos, st.ang = st.ent:GetPos(), st.ent:GetAngles() end
     end
 end)
 
-hook.Add("PostCleanupMap", "nradio_persist", function()
-    NRadio.CleaningUp = false
+hook.Add("PostCleanupMap", "bradio_persist", function()
+    BRadio.CleaningUp = false
     for id, st in pairs(S) do
         if st.permanent then
-            if not IsValid(st.ent) and st.pos then NRadio.SpawnRadio(st.pos, st.ang, st) end
+            if not IsValid(st.ent) and st.pos then BRadio.SpawnRadio(st.pos, st.ang, st) end
         elseif not IsValid(st.ent) then
-            NRadio.RemoveStation(st)
+            BRadio.RemoveStation(st)
         end
     end
 end)
 
 -- admins move pinned radios; everyone else leaves them alone
 local function pinned(ent)
-    if not IsValid(ent) or ent:GetClass() ~= NRadio.Class then return false end
-    local st = NRadio.StationOf(ent)
+    if not IsValid(ent) or ent:GetClass() ~= BRadio.Class then return false end
+    local st = BRadio.StationOf(ent)
     return st and st.permanent
 end
 
-hook.Add("PhysgunPickup", "nradio_protect", function(ply, ent)
-    if pinned(ent) and not NRadio.IsAdmin(ply) then return false end
+hook.Add("PhysgunPickup", "bradio_protect", function(ply, ent)
+    if pinned(ent) and not BRadio.IsAdmin(ply) then return false end
 end)
-hook.Add("CanTool", "nradio_protect", function(ply, tr)
-    if pinned(tr.Entity) and not NRadio.IsAdmin(ply) then return false end
+hook.Add("CanTool", "bradio_protect", function(ply, tr)
+    if pinned(tr.Entity) and not BRadio.IsAdmin(ply) then return false end
 end)
-hook.Add("CanProperty", "nradio_protect", function(ply, _, ent)
-    if pinned(ent) and not NRadio.IsAdmin(ply) then return false end
+hook.Add("CanProperty", "bradio_protect", function(ply, _, ent)
+    if pinned(ent) and not BRadio.IsAdmin(ply) then return false end
 end)
-hook.Add("GravGunPickupAllowed", "nradio_protect", function(ply, ent)
-    if pinned(ent) and not NRadio.IsAdmin(ply) then return false end
+hook.Add("GravGunPickupAllowed", "bradio_protect", function(ply, ent)
+    if pinned(ent) and not BRadio.IsAdmin(ply) then return false end
 end)
-hook.Add("PhysgunDrop", "nradio_persist", function(_, ent)
+hook.Add("PhysgunDrop", "bradio_persist", function(_, ent)
     if pinned(ent) then
-        local st = NRadio.StationOf(ent)
+        local st = BRadio.StationOf(ent)
         local phys = ent:GetPhysicsObject()
         if IsValid(phys) then phys:EnableMotion(false) end
         st.pos, st.ang = ent:GetPos(), ent:GetAngles()
-        NRadio.SavePinned()
+        BRadio.SavePinned()
     end
 end)

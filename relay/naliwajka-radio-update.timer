@@ -1,5 +1,5 @@
 [Unit]
-Description=Naliwajka Radio: update yt-dlp daily
+Description=Burrito Radio: update yt-dlp daily
 
 [Timer]
 OnCalendar=*-*-* 08:30:00

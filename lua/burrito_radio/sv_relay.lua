@@ -1,36 +1,41 @@
 --[[--------------------------------------------------------------------------
-    naliwajka_radio/sv_relay.lua  -- the server's side of relay/radio_relay.py
+    burrito_radio/sv_relay.lua  -- the server's side of relay/radio_relay.py
 
     The relay runs next to the game server and answers on two addresses:
-      nradio_relay_url   what THIS server calls (resolve, fetch, library);
+      bradio_relay_url   what THIS server calls (resolve, fetch, library);
                          default http://127.0.0.1:8090/radio
-      nradio_public_url  what PLAYERS' games download the MP3s from;
+      bradio_public_url  what PLAYERS' games download the MP3s from;
                          default https://www.naliwajka.com/radio
 
     GMod refuses HTTP() to 127.0.0.1 and private addresses unless srcds was
     started with -allowlocalhttp. Without it every request fails with
-    "invalid url"; NRadio.Relay.Problem says so in the menu.
+    "invalid url"; BRadio.Relay.Problem says so in the menu.
 
-    When the relay is on another box, set nradio_relay_key to its RADIO_KEY.
+    When the relay is on another box, set bradio_relay_key to its RADIO_KEY.
 ----------------------------------------------------------------------------]]
 
-NRadio.Relay = NRadio.Relay or {}
-local R = NRadio.Relay
+BRadio.Relay = BRadio.Relay or {}
+local R = BRadio.Relay
 
-local cvRelay = CreateConVar("nradio_relay_url", "http://127.0.0.1:8090/radio", FCVAR_ARCHIVE,
+local cvRelay = CreateConVar("bradio_relay_url", "http://127.0.0.1:8090/radio", FCVAR_ARCHIVE,
     "Radio: where the server reaches the relay")
-local cvPublic = CreateConVar("nradio_public_url", "https://www.naliwajka.com/radio", FCVAR_ARCHIVE,
+local cvPublic = CreateConVar("bradio_public_url", "https://www.naliwajka.com/radio", FCVAR_ARCHIVE,
     "Radio: where players download the audio from")
-local cvKey = CreateConVar("nradio_relay_key", "", bit.bor(FCVAR_ARCHIVE, FCVAR_PROTECTED, FCVAR_DONTRECORD),
+local cvKey = CreateConVar("bradio_relay_key", "", bit.bor(FCVAR_ARCHIVE, FCVAR_PROTECTED, FCVAR_DONTRECORD),
     "Radio: the relay's RADIO_KEY (only when it is on another box)")
 
 -- Per-box settings (the relay's address and key on a server that is not the relay's
--- own box) go in garrysmod/cfg/naliwajka_radio.cfg, run once the convars exist. It
+-- own box) go in garrysmod/cfg/burrito_radio.cfg, run once the convars exist. It
 -- keeps the key out of server.cfg (often managed by something else) and off the
 -- command line, where `ps` would show it.
-if file.Exists and file.Exists("cfg/naliwajka_radio.cfg", "GAME") then
-    game.ConsoleCommand("exec naliwajka_radio.cfg\n")
+local function execLocal()
+    if file.Exists and file.Exists("cfg/burrito_radio.cfg", "GAME") then
+        game.ConsoleCommand("exec burrito_radio.cfg\n")
+    end
 end
+execLocal()
+-- an exec queued while the server is still starting can be dropped: run it again once up
+hook.Add("InitPostEntity", "bradio_cfg", execLocal)
 
 R.Problem = nil   -- the last connection failure, shown to admins in the menu
 
@@ -57,7 +62,7 @@ function R.Get(path, query, cb)
                 R.Problem = nil
                 cb(true, t)
             elseif code == 403 then
-                R.Problem = "the relay refused this server (set nradio_relay_key)"
+                R.Problem = "the relay refused this server (set bradio_relay_key)"
                 cb(false, R.Problem)
             else
                 cb(false, t.error or ("relay HTTP " .. tostring(code)))

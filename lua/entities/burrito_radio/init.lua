@@ -9,7 +9,7 @@ ENT.HostModel = "models/props_junk/PopCan01a.mdl"
 function ENT:SpawnFunction(ply, tr, class)
     if not tr.Hit then return end
     local ang = Angle(0, ply:EyeAngles().y + 180, 0)
-    local ent = NRadio.SpawnRadio(tr.HitPos + tr.HitNormal * 1, ang, nil, { owner = ply })
+    local ent = BRadio.SpawnRadio(tr.HitPos + tr.HitNormal * 1, ang, nil, { owner = ply })
     return ent
 end
 
@@ -27,16 +27,16 @@ function ENT:Initialize()
         phys:Wake()
     end
     -- spawned some other way (a dupe, ents.Create): give it a station of its own
-    if self:GetStationId() == "" or not NRadio.Stations[self:GetStationId()] then
-        local st = NRadio.NewStation({})
+    if self:GetStationId() == "" or not BRadio.Stations[self:GetStationId()] then
+        local st = BRadio.NewStation({})
         st.ent = self
         self:SetStationId(st.id)
-        NRadio.Dirty(st)
+        BRadio.Dirty(st)
     end
 end
 
 function ENT:Use(activator)
-    if IsValid(activator) and activator:IsPlayer() then NRadio.OpenMenu(activator, self) end
+    if IsValid(activator) and activator:IsPlayer() then BRadio.OpenMenu(activator, self) end
 end
 
 function ENT:OnTakeDamage(dmg)
@@ -44,5 +44,5 @@ function ENT:OnTakeDamage(dmg)
 end
 
 function ENT:OnRemove()
-    NRadio.EntityRemoved(self)
+    BRadio.EntityRemoved(self)
 end

@@ -1,5 +1,5 @@
 --[[--------------------------------------------------------------------------
-    naliwajka_radio/cl_menu.lua  -- the menu you get pressing E on a radio
+    burrito_radio/cl_menu.lua  -- the menu you get pressing E on a radio
 
       top      what is playing, how far in, play/pause, skip (or vote to skip),
                stop, the radio's volume, and your own mute
@@ -13,9 +13,9 @@
     Buttons you may not use are greyed out; the server checks again anyway.
 ----------------------------------------------------------------------------]]
 
-local CL = NRadio.CL
-local Menu = NRadio.Menu or {}
-NRadio.Menu = Menu
+local CL = BRadio.CL
+local Menu = BRadio.Menu or {}
+BRadio.Menu = Menu
 
 local BLUE = Color(121, 153, 194)
 local BLUE_DK = Color(52, 70, 98)
@@ -24,15 +24,15 @@ local INK = Color(240, 244, 250)
 local SUB = Color(185, 200, 225)
 local BRASS = Color(222, 186, 118)
 
-surface.CreateFont("NRadioMenuTitle", { font = "Roboto", size = 24, weight = 800, extended = true })
-surface.CreateFont("NRadioMenuSong", { font = "Roboto", size = 20, weight = 700, extended = true })
-surface.CreateFont("NRadioMenu", { font = "Roboto", size = 16, weight = 500, extended = true })
-surface.CreateFont("NRadioMenuSmall", { font = "Roboto", size = 14, weight = 500, extended = true })
+surface.CreateFont("BRadioMenuTitle", { font = "Roboto", size = 24, weight = 800, extended = true })
+surface.CreateFont("BRadioMenuSong", { font = "Roboto", size = 20, weight = 700, extended = true })
+surface.CreateFont("BRadioMenu", { font = "Roboto", size = 16, weight = 500, extended = true })
+surface.CreateFont("BRadioMenuSmall", { font = "Roboto", size = 14, weight = 500, extended = true })
 
 local function send(op, args)
     args = args or {}
     args.id = Menu.id
-    NRadio.Send(op, args)
+    BRadio.Send(op, args)
 end
 
 local function station() return Menu.id and CL.Stations[Menu.id] end
@@ -40,7 +40,7 @@ local function station() return Menu.id and CL.Stations[Menu.id] end
 local function button(parent, text, fn, w)
     local b = vgui.Create("DButton", parent)
     b:SetText(text)
-    b:SetFont("NRadioMenu")
+    b:SetFont("BRadioMenu")
     b:SetTextColor(INK)
     b:SetTall(30)
     if w then b:SetWide(w) end
@@ -56,7 +56,7 @@ end
 local function check(parent, text, fn)
     local c = vgui.Create("DCheckBoxLabel", parent)
     c:SetText(text)
-    c:SetFont("NRadioMenu")
+    c:SetFont("BRadioMenu")
     c:SetTextColor(INK)
     c.OnChange = function(s, v) if not s.quiet then fn(v) end end
     return c
@@ -74,11 +74,11 @@ local function slider(parent, text, min, max, dec, fn)
     s:SetMinMax(min, max)
     s:SetDecimals(dec)
     s.Label:SetTextColor(INK)
-    s.Label:SetFont("NRadioMenu")
+    s.Label:SetFont("BRadioMenu")
     s.TextArea:SetTextColor(INK)
     s.OnValueChanged = function(self, v)
         if self.quiet then return end
-        timer.Create("nradio_slider_" .. text, 0.35, 1, function() fn(v) end)
+        timer.Create("bradio_slider_" .. text, 0.35, 1, function() fn(v) end)
     end
     return s
 end
@@ -116,11 +116,11 @@ function Menu.Open(id, canControl, isAdmin, canAdd)
     f.Paint = function(_, pw, ph)
         draw.RoundedBox(10, 0, 0, pw, ph, BLUE_DKR)
         draw.RoundedBoxEx(10, 0, 0, pw, 54, BLUE_DK, true, true, false, false)
-        draw.SimpleText("CROSLEY", "NRadioMenuTitle", 16, 27, BRASS, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        draw.SimpleText("CROSLEY", "BRadioMenuTitle", 16, 27, BRASS, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
         local st = station()
         local sub = st and (st.pinned and "Pinned by the server" or ("Owner: " .. tostring(st.owner))) or ""
-        draw.SimpleText("Cooper Radio", "NRadioMenuSong", 130, 27, INK, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-        draw.SimpleText(sub, "NRadioMenuSmall", pw - 50, 27, SUB, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        draw.SimpleText("Cooper Radio", "BRadioMenuSong", 130, 27, INK, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        draw.SimpleText(sub, "BRadioMenuSmall", pw - 50, 27, SUB, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
     end
 
     -- now playing ------------------------------------------------------
@@ -135,21 +135,21 @@ function Menu.Open(id, canControl, isAdmin, canAdd)
         if st and st.cur then
             title = st.cur.t or st.cur.k
             by = "added by " .. tostring(st.cur.b or "?")
-            pos = math.max(0, NRadio.Position(st))
+            pos = math.max(0, BRadio.Position(st))
             dur = st.cur.d or 0
         end
         if state == "loading" then by = "downloading... " .. by end
         if state == "paused" then by = "paused · " .. by end
-        draw.SimpleText(title, "NRadioMenuSong", 12, 18, INK, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-        draw.SimpleText(by, "NRadioMenuSmall", 12, 40, SUB, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        draw.SimpleText(title, "BRadioMenuSong", 12, 18, INK, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        draw.SimpleText(by, "BRadioMenuSmall", 12, 40, SUB, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
         -- progress
         local bx, by2, bw = 12, 58, pw - 24
         draw.RoundedBox(3, bx, by2, bw, 6, BLUE_DKR)
         if dur > 0 then draw.RoundedBox(3, bx, by2, math.Clamp(pos / dur, 0, 1) * bw, 6, BRASS) end
-        draw.SimpleText(NRadio.FormatTime(pos) .. (dur > 0 and (" / " .. NRadio.FormatTime(dur)) or ""),
-            "NRadioMenuSmall", pw - 12, 40, SUB, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        draw.SimpleText(BRadio.FormatTime(pos) .. (dur > 0 and (" / " .. BRadio.FormatTime(dur)) or ""),
+            "BRadioMenuSmall", pw - 12, 40, SUB, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         if st and (st.votes or 0) > 0 then
-            draw.SimpleText("skip votes: " .. st.votes, "NRadioMenuSmall", pw - 12, 18, BRASS, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+            draw.SimpleText("skip votes: " .. st.votes, "BRadioMenuSmall", pw - 12, 18, BRASS, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         end
     end
     -- click the bar to seek (controllers)
@@ -184,7 +184,7 @@ function Menu.Open(id, canControl, isAdmin, canAdd)
     add.Paint = nil
     local entry = vgui.Create("DTextEntry", add)
     entry:Dock(FILL)
-    entry:SetFont("NRadioMenu")
+    entry:SetFont("BRadioMenu")
     entry:SetPlaceholderText("Paste a YouTube video or playlist link, an .mp3 link, or type a song name")
     Menu.entry = entry
     local function doAdd(nextUp)
@@ -203,7 +203,7 @@ function Menu.Open(id, canControl, isAdmin, canAdd)
     local status = vgui.Create("DLabel", f)
     status:Dock(BOTTOM)
     status:DockMargin(10, 4, 10, 2)
-    status:SetFont("NRadioMenuSmall")
+    status:SetFont("BRadioMenuSmall")
     status:SetTextColor(SUB)
     status:SetText("Tip: anyone near the radio hears it. Range and volume fade with distance and walls.")
     Menu.status = status
@@ -281,7 +281,7 @@ function Menu.BuildLibrary(sheet)
     right.Paint = function(_, pw, ph) draw.RoundedBox(6, 0, 0, pw, ph, BLUE_DK) end
     local plTitle = vgui.Create("DLabel", right)
     plTitle:Dock(TOP) plTitle:DockMargin(8, 6, 8, 2)
-    plTitle:SetFont("NRadioMenu") plTitle:SetTextColor(INK)
+    plTitle:SetFont("BRadioMenu") plTitle:SetTextColor(INK)
     plTitle:SetText("Saved playlists")
     local pls = list(right, { { "Name" }, { "Songs", 50 } })
     pls:SetMultiSelect(false)
@@ -355,14 +355,14 @@ function Menu.BuildSettings(sheet)
     local function line(text)
         local lb = vgui.Create("DLabel", p)
         lb:Dock(TOP) lb:DockMargin(8, 8, 8, 0)
-        lb:SetFont("NRadioMenuSmall") lb:SetTextColor(SUB)
+        lb:SetFont("BRadioMenuSmall") lb:SetTextColor(SUB)
         lb:SetWrap(true) lb:SetAutoStretchVertical(true)
         lb:SetText(text)
         return lb
     end
-    Menu.range = slider(p, "Range (how far it carries)", NRadio.MinRange, NRadio.MaxRange, 0, function(v) send("range", { v = v }) end)
+    Menu.range = slider(p, "Range (how far it carries)", BRadio.MinRange, BRadio.MaxRange, 0, function(v) send("range", { v = v }) end)
     Menu.range:Dock(TOP) Menu.range:DockMargin(8, 8, 8, 0)
-    line("About 50 units is a metre. The default, " .. NRadio.DefaultRange .. ", carries across a big room and fades out down the street.")
+    line("About 50 units is a metre. The default, " .. BRadio.DefaultRange .. ", carries across a big room and fades out down the street.")
     Menu.cLoop = check(p, "Loop the queue (finished songs go back to the end)", function(v) send("loop", { on = v }) end)
     Menu.cLoop:Dock(TOP) Menu.cLoop:DockMargin(8, 12, 8, 0)
     Menu.cShuffle = check(p, "Shuffle", function(v) send("shuffle", { on = v }) end)
@@ -377,7 +377,7 @@ function Menu.BuildSettings(sheet)
     Menu.bDelete:Dock(TOP) Menu.bDelete:DockMargin(8, 16, 0, 0)
     Menu.problem = line("")
     Menu.problem:SetTextColor(Color(255, 170, 120))
-    line("Your volume for every radio: nradio_volume 0-1 in the console. nradio_enabled 0 turns radios off for you.")
+    line("Your volume for every radio: bradio_volume 0-1 in the console. bradio_enabled 0 turns radios off for you.")
     sheet:AddSheet("Radio", p, "icon16/cog.png")
 end
 
@@ -412,7 +412,7 @@ function Menu.Refresh()
     Menu.plName:SetEnabled(adm)
     Menu.libAdmin:SetVisible(adm)
     Menu.range:SetEnabled(ctl)
-    setSlider(Menu.range, st.range or NRadio.DefaultRange)
+    setSlider(Menu.range, st.range or BRadio.DefaultRange)
     for _, c in ipairs({ { Menu.cLoop, "loop" }, { Menu.cShuffle, "shuffle" }, { Menu.cAuto, "auto" } }) do
         setCheck(c[1], st[c[2]])
         c[1]:SetEnabled(ctl)
@@ -428,7 +428,7 @@ function Menu.Refresh()
     local scroll = l.VBar and l.VBar:GetScroll() or 0
     l:Clear()
     for i, t in ipairs(st.q or {}) do
-        local line = l:AddLine(i, t.t or t.k, (t.d or 0) > 0 and NRadio.FormatTime(t.d) or "?", t.b or "")
+        local line = l:AddLine(i, t.t or t.k, (t.d or 0) > 0 and BRadio.FormatTime(t.d) or "?", t.b or "")
         line.idx, line.key = i, t.k
         if sel[t.k] then line:SetSelected(true) end
         if t.s == me then
@@ -450,7 +450,7 @@ function Menu.RefreshLibrary()
     for _, t in ipairs(lib.tracks or {}) do
         local hay = string.lower((t.album or "") .. " " .. (t.title or ""))
         if q == "" or hay:find(q, 1, true) then
-            local line = l:AddLine(t.album or "", t.title or t.key, (t.duration or 0) > 0 and NRadio.FormatTime(t.duration) or "...")
+            local line = l:AddLine(t.album or "", t.title or t.key, (t.duration or 0) > 0 and BRadio.FormatTime(t.duration) or "...")
             line.key = t.key
         end
     end
@@ -470,30 +470,30 @@ function Menu.RefreshLibrary()
 end
 
 -- --------------------------------------------------------------- events
-net.Receive(NRadio.Net.Open, function()
+net.Receive(BRadio.Net.Open, function()
     local id = net.ReadString()
     local canControl, isAdmin, canAdd = net.ReadBool(), net.ReadBool(), net.ReadBool()
     Menu.Open(id, canControl, isAdmin, canAdd)
 end)
 
-hook.Add("NRadioState", "nradio_menu", function(id, st)
+hook.Add("BRadioState", "bradio_menu", function(id, st)
     if not IsValid(Menu.frame) or id ~= Menu.id then return end
     if not st then Menu.frame:Remove() return end
     -- a pinned radio changes its id when it is pinned; follow it
     Menu.Refresh()
 end)
 
-hook.Add("NRadioLibrary", "nradio_menu", function() Menu.RefreshLibrary() end)
+hook.Add("BRadioLibrary", "bradio_menu", function() Menu.RefreshLibrary() end)
 
-hook.Add("NRadioNotice", "nradio_menu", function(msg)
+hook.Add("BRadioNotice", "bradio_menu", function(msg)
     if IsValid(Menu.frame) and IsValid(Menu.status) then Menu.status:SetText(msg) end
 end)
 
 -- close the menu when you walk away
-hook.Add("Think", "nradio_menu", function()
+hook.Add("Think", "bradio_menu", function()
     if not IsValid(Menu.frame) then return end
     local st = station()
-    local ent = NRadio.EntityFor(st)
+    local ent = BRadio.EntityFor(st)
     if IsValid(ent) and not Menu.isAdmin and LocalPlayer():GetPos():Distance(ent:GetPos()) > 450 then
         Menu.frame:Remove()
     end
